@@ -1,6 +1,8 @@
+
 #include <stdio.h>
 #include <iostream>
 using namespace std;
+
 
 void main()
 {
@@ -12,8 +14,16 @@ void main()
 	printf( "%f\n", f2);
 	printf( "%f\n", f3);
 
-
 	cout << f1 << endl;
 	cout << f2 << endl;
 	cout << f3 << endl;
+
+	float f4;
+	cin >> f4;
+	cout << f4 << endl;
+
+	float f5;
+	scanf( "%f", &f5);
+	cout << f5;
+
 }
