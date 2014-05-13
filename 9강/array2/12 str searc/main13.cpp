@@ -15,9 +15,21 @@ void main()
 	{
 		if (str[ 0] == strDna[ k])
 		{
+			bool isFind = true;
+			for (int i=0; i < str.length(); ++i)
+			{
+				if (strDna[k + i] != str[ i])
+				{
+					isFind = false;
+					break;
+				}
+			}
 
-
+			if (isFind)
+			{
+				cout << "find DNA " << str << endl;
+				break;
+			}
 		}
 	}
-
 }
