@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "3func1", "func1\func1.vcpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "4 calc", "4 calc\4 calc.vcproj", "{67A53E15-0461-4C36-8722-B3C4CAAAE1C8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "poker", "poker\poker.vcproj", "{18D5FF8B-6C40-4CC4-8069-B611FE0E4E41}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -31,6 +33,10 @@ Global
 		{67A53E15-0461-4C36-8722-B3C4CAAAE1C8}.Debug|Win32.Build.0 = Debug|Win32
 		{67A53E15-0461-4C36-8722-B3C4CAAAE1C8}.Release|Win32.ActiveCfg = Release|Win32
 		{67A53E15-0461-4C36-8722-B3C4CAAAE1C8}.Release|Win32.Build.0 = Release|Win32
+		{18D5FF8B-6C40-4CC4-8069-B611FE0E4E41}.Debug|Win32.ActiveCfg = Debug|Win32
+		{18D5FF8B-6C40-4CC4-8069-B611FE0E4E41}.Debug|Win32.Build.0 = Debug|Win32
+		{18D5FF8B-6C40-4CC4-8069-B611FE0E4E41}.Release|Win32.ActiveCfg = Release|Win32
+		{18D5FF8B-6C40-4CC4-8069-B611FE0E4E41}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
