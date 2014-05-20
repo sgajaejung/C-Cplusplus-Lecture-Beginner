@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "callByRef", "callByRef\call
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pointer", "Pointer\Pointer.vcxproj", "{C5677A51-A17C-4A58-856C-4D060E166168}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "stringAddress", "stringAddress\stringAddress.vcxproj", "{118E2D78-C9E1-4C30-B371-F56EE158D25B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -43,6 +45,10 @@ Global
 		{C5677A51-A17C-4A58-856C-4D060E166168}.Debug|Win32.Build.0 = Debug|Win32
 		{C5677A51-A17C-4A58-856C-4D060E166168}.Release|Win32.ActiveCfg = Release|Win32
 		{C5677A51-A17C-4A58-856C-4D060E166168}.Release|Win32.Build.0 = Release|Win32
+		{118E2D78-C9E1-4C30-B371-F56EE158D25B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{118E2D78-C9E1-4C30-B371-F56EE158D25B}.Debug|Win32.Build.0 = Debug|Win32
+		{118E2D78-C9E1-4C30-B371-F56EE158D25B}.Release|Win32.ActiveCfg = Release|Win32
+		{118E2D78-C9E1-4C30-B371-F56EE158D25B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
