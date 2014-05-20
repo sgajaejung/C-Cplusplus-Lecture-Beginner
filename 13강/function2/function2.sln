@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "1 function2", "function2\function2.vcxproj", "{AC08E3E8-629A-4169-8941-6936FB75440C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "2 bubbleFunc", "bubbleFunc\bubbleFunc.vcxproj", "{00E32654-EC0E-492B-ADC8-DFA14846DD3C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bubbleFunc2", "bubbleFunc2\bubbleFunc2.vcxproj", "{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC08E3E8-629A-4169-8941-6936FB75440C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AC08E3E8-629A-4169-8941-6936FB75440C}.Debug|Win32.Build.0 = Debug|Win32
+		{AC08E3E8-629A-4169-8941-6936FB75440C}.Release|Win32.ActiveCfg = Release|Win32
+		{AC08E3E8-629A-4169-8941-6936FB75440C}.Release|Win32.Build.0 = Release|Win32
+		{00E32654-EC0E-492B-ADC8-DFA14846DD3C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{00E32654-EC0E-492B-ADC8-DFA14846DD3C}.Debug|Win32.Build.0 = Debug|Win32
+		{00E32654-EC0E-492B-ADC8-DFA14846DD3C}.Release|Win32.ActiveCfg = Release|Win32
+		{00E32654-EC0E-492B-ADC8-DFA14846DD3C}.Release|Win32.Build.0 = Release|Win32
+		{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}.Debug|Win32.Build.0 = Debug|Win32
+		{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}.Release|Win32.ActiveCfg = Release|Win32
+		{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
