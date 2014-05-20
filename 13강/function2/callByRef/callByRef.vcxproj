@@ -11,10 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}</ProjectGuid>
+    <ProjectGuid>{5D461AFD-AAA4-4A00-8CDF-484C9E2B7F0E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>bubbleFunc2</RootNamespace>
-    <ProjectName>3 bubbleFunc2</ProjectName>
+    <RootNamespace>callByRef</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,7 +74,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bubbleFunc2.cpp" />
+    <ClCompile Include="callByRef.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

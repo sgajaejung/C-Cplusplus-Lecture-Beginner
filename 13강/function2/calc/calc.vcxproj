@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7BE1768D-2ABC-47B2-B9BD-50A3D1F02685}</ProjectGuid>
+    <ProjectGuid>{92F6DCDB-CFD6-40FD-BD42-D4AB7CC48C0C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>bubbleFunc2</RootNamespace>
-    <ProjectName>3 bubbleFunc2</ProjectName>
+    <RootNamespace>calc</RootNamespace>
+    <ProjectName>0 calc</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,7 +75,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bubbleFunc2.cpp" />
+    <ClCompile Include="calc.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
