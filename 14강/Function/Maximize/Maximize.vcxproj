@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{1518A27D-FAD3-43C7-BD0E-2FED9B61212D}</ProjectGuid>
+    <ProjectGuid>{197AEEB9-055C-44C6-8B30-5E1293CE84A7}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Function</RootNamespace>
-    <ProjectName>1 Function</ProjectName>
+    <RootNamespace>Maximize</RootNamespace>
+    <ProjectName>5 Maximize</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,7 +75,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="function1.cpp" />
+    <ClCompile Include="Maximize.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

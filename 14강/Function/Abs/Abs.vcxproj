@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{1518A27D-FAD3-43C7-BD0E-2FED9B61212D}</ProjectGuid>
+    <ProjectGuid>{E4CBE3B1-3DB2-461F-88DD-8D55A422E36A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Function</RootNamespace>
-    <ProjectName>1 Function</ProjectName>
+    <RootNamespace>Abs</RootNamespace>
+    <ProjectName>3 Abs</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,7 +75,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="function1.cpp" />
+    <ClCompile Include="abs.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

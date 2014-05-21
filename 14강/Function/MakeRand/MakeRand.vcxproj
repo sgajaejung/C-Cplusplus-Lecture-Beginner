@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{1518A27D-FAD3-43C7-BD0E-2FED9B61212D}</ProjectGuid>
+    <ProjectGuid>{D9B38DE2-80D0-4BAA-877B-A70A0481694F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Function</RootNamespace>
-    <ProjectName>1 Function</ProjectName>
+    <RootNamespace>MakeRand</RootNamespace>
+    <ProjectName>6 MakeRand</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,7 +75,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="function1.cpp" />
+    <ClCompile Include="makeRand.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
