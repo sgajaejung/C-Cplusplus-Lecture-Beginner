@@ -58,7 +58,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 
 	//메시지 구조체
 	MSG msg;
-	ZeroMemory( &msg, sizeof( MSG ) );
+	ZeroMemory( &msg, sizeof(MSG) );
 
 	while (msg.message != WM_QUIT)
 	{
