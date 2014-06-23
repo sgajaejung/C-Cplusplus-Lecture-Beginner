@@ -10,6 +10,8 @@ int mouse_y;
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage, 
 	WPARAM wParam, LPARAM lParam );
 void Render(HDC hdc);
+bool PointInRect( RECT r, int x, int y );
+
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
 	HINSTANCE hPrevInstance, 
@@ -99,6 +101,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		{
 			hdc = BeginPaint(hWnd, &ps);
 			RECT r = {100, 100, 140, 140};
+			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
+
+			if (PointInRect(r, mouse_x, mouse_y))
+			{
+				TextOutA(hdc, 10, 10, "ssss", 4);
+			}
 
 //			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
 //			Ellipse(hdc, r.left+100, r.top+200, r.right+100, r.bottom+200);
@@ -106,7 +114,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 //			MoveToEx(hdc, 100, 100, NULL);
 //			LineTo(hdc, mouse_x, mouse_y);
 //			EndPaint(hWnd, &ps);
-			Render(hdc);
+//			Render(hdc);
+
+			
 
 			if (isClick)
 			{
@@ -120,8 +130,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		}
 		break;
 
-	case WM_ERASEBKGND:
-		return 0;
+//	case WM_ERASEBKGND:
+//		return 0;
 
 	case WM_LBUTTONDOWN:
 		{
@@ -167,6 +177,12 @@ void Render(HDC hdc)
 		}
 	}
 
+}
 
-
+bool PointInRect( RECT r, int x, int y )
+{
+	return ((r.left < x) && 
+		(r.right > x) && 
+		(r.top < y) &&
+		(r.bottom > y));
 }
