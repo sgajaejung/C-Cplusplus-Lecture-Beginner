@@ -1,8 +1,15 @@
 #include <windows.h>
 
+bool isClick = false;
+int click_mouse_x;
+int click_mouse_y;
+int mouse_x;
+int mouse_y;
 
 // 콜백 프로시져 함수 프로토 타입
-LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam );
+LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage, 
+	WPARAM wParam, LPARAM lParam );
+void Render(HDC hdc);
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
 	HINSTANCE hPrevInstance, 
@@ -17,7 +24,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	WNDCLASS WndClass;
 	WndClass.cbClsExtra = 0;			//윈도우에서 사용하는 여분의 메모리설정( 그냥 0 이다  신경쓰지말자 )
 	WndClass.cbWndExtra = 0;			//윈도우에서 사용하는 여분의 메모리설정( 그냥 0 이다  신경쓰지말자 )
-	WndClass.hbrBackground = (HBRUSH)GetStockObject(GRAY_BRUSH);		//윈도우 배경색상
+	WndClass.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);		//윈도우 배경색상
 	WndClass.hCursor = LoadCursor( NULL, IDC_ARROW );			//윈도우의 커서모양 결정
 	WndClass.hIcon = LoadIcon( NULL, IDI_APPLICATION );		//윈도우아이콘모양 결정
 	WndClass.hInstance = hInstance;				//프로그램인스턴스핸들 
@@ -37,8 +44,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		WS_OVERLAPPEDWINDOW,	//윈도우 스타일 WS_OVERLAPPEDWINDOW
 		0,				//윈도우 시작 위치 X 
 		0,				//윈도우 시작 위치 Y
-		1024,				//윈도우 가로 크기 ( 작업영역의 크기가 아님 )
-		768,				//윈도우 세로 크기 ( 작업영역의 크기가 아님 )
+		800,				//윈도우 가로 크기 ( 작업영역의 크기가 아님 )
+		600,				//윈도우 세로 크기 ( 작업영역의 크기가 아님 )
 		GetDesktopWindow(),		//부모 윈도우 핸들 ( 프로그램에서 최상위 윈도우면 NULL 또는 GetDesktopWindow() )
 		NULL,					//메뉴 ID ( 자신의 컨트롤 객체의 윈도우인경우 컨트롤 ID 가 된	
 		hInstance,				//이 윈도우가 물릴 프로그램 인스턴스 핸들
@@ -46,7 +53,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		);
 
 	//윈도우를 정확한 작업영역 크기로 맞춘다
-	RECT rcClient = { 0, 0, 1024, 768 };
+	RECT rcClient = { 0, 0, 800, 600};
 	AdjustWindowRect( &rcClient, WS_OVERLAPPEDWINDOW, FALSE );	//rcClient 크기를 작업 영영으로 할 윈도우 크기를 rcClient 에 대입되어 나온다.
 
 	//윈도우 크기와 윈도우 위치를 바꾸어준다.
@@ -86,13 +93,75 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	switch (msg)
 	{
 	case WM_PAINT: // 화면이 갱신될 때 호출된다.
-		hdc = BeginPaint(hWnd, &ps);
-		EndPaint(hWnd, &ps);
+		{
+			hdc = BeginPaint(hWnd, &ps);
+			RECT r = {100, 100, 140, 140};
+
+//			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
+//			Ellipse(hdc, r.left+100, r.top+200, r.right+100, r.bottom+200);
+
+//			MoveToEx(hdc, 100, 100, NULL);
+//			LineTo(hdc, mouse_x, mouse_y);
+//			EndPaint(hWnd, &ps);
+			Render(hdc);
+
+			if (isClick)
+			{
+				RECT dragR = {click_mouse_x, click_mouse_y,
+					mouse_x, mouse_y};
+				Rectangle(hdc, dragR.left, dragR.top,
+					dragR.right, dragR.bottom);
+			}
+		}
+		break;
+
+	case WM_ERASEBKGND:
+		return 0;
+
+	case WM_LBUTTONDOWN:
+		{
+			isClick = true;
+			click_mouse_x = LOWORD(lParam);
+			click_mouse_y = HIWORD(lParam);
+		}		
+		break;
+	case WM_LBUTTONUP:
+		{
+			isClick = false;
+		}		
+		break;
+	case WM_MOUSEMOVE:
+		{
+			mouse_x = LOWORD(lParam);
+			mouse_y = HIWORD(lParam);
+
+			::InvalidateRect(hWnd, NULL, TRUE);			
+		}
 		break;
 
 	case WM_DESTROY: //윈도우가 파괴된다면..
 		PostQuitMessage(0);	//프로그램 종료 요청 ( 메시지 루프를 빠져나가게 된다 )
 		break;
 	}
+
 	return DefWindowProc( hWnd, msg, wParam, lParam ); // 기본적인 메세지 처리를 담당한다.
+}
+
+void Render(HDC hdc)
+{
+	const int w = 30;
+	for (int x=0; x < 10; ++x)
+	{
+		for (int y=0; y < 10; ++y)
+		{
+			const int left = x*w;
+			const int top = y*w;
+			const RECT r = {left, top, left+w, top+w};
+
+			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
+		}
+	}
+
+
+
 }
