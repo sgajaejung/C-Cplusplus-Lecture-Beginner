@@ -116,7 +116,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 //			EndPaint(hWnd, &ps);
 //			Render(hdc);
 
-			SetPixel(hdc, mouse_x, mouse_y, RGB(255,0,0));
 			
 
 			if (isClick)
@@ -148,13 +147,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_MOUSEMOVE:
 		{
-			hdc = BeginPaint(hWnd, &ps);
-
 			mouse_x = LOWORD(lParam);
 			mouse_y = HIWORD(lParam);
 
-			EndPaint(hWnd, &ps);
-			::InvalidateRect(hWnd, NULL, FALSE);
+			::InvalidateRect(hWnd, NULL, TRUE);			
 		}
 		break;
 
