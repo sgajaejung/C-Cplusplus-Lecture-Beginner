@@ -125,7 +125,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				int pos1_y = click_mouse_y;
 				int pos2_x = mouse_x;
 				int pos2_y = mouse_y;
-				float slop = (float)(pos2_y-pos1_y) / (float)(pos2_x - pos1_x);
+				float slop = (float)(pos2_y - pos1_y) / 
+					(float)(pos2_x - pos1_x);
 				for (int i=0; i < pos2_x-pos1_x; ++i)
 				{
 					int x = i + pos1_x;
