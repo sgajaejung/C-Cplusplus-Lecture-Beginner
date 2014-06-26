@@ -5,6 +5,8 @@ int click_mouse_x;
 int click_mouse_y;
 int mouse_x;
 int mouse_y;
+int state = 0;
+
 
 // 콜백 프로시져 함수 프로토 타입
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage, 
@@ -100,6 +102,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	case WM_PAINT: // 화면이 갱신될 때 호출된다.
 		{
 			hdc = BeginPaint(hWnd, &ps);
+/*
 			RECT r = {100, 100, 140, 140};
 			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
 
@@ -107,7 +110,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			{
 				TextOutA(hdc, 10, 10, "ssss", 4);
 			}
-
+*/
 //			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
 //			Ellipse(hdc, r.left+100, r.top+200, r.right+100, r.bottom+200);
 
@@ -115,9 +118,23 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 //			LineTo(hdc, mouse_x, mouse_y);
 //			EndPaint(hWnd, &ps);
 //			Render(hdc);
-
 			
-
+			if (state >= 2)
+			{
+				int pos1_x = click_mouse_x;
+				int pos1_y = click_mouse_y;
+				int pos2_x = mouse_x;
+				int pos2_y = mouse_y;
+				float slop = (float)(pos2_y-pos1_y) / (float)(pos2_x - pos1_x);
+				for (int i=0; i < pos2_x-pos1_x; ++i)
+				{
+					int x = i + pos1_x;
+					int y = (int)(slop*i + pos1_y);
+					SetPixel(hdc, x, y, RGB(255,0,0));
+				}
+			}
+			
+/*
 			if (isClick)
 			{
 				RECT dragR = {click_mouse_x, click_mouse_y,
@@ -125,7 +142,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				Rectangle(hdc, dragR.left, dragR.top,
 					dragR.right, dragR.bottom);
 			}
-
+*/
 			EndPaint(hWnd, &ps);
 		}
 		break;
@@ -136,8 +153,17 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	case WM_LBUTTONDOWN:
 		{
 			isClick = true;
-			click_mouse_x = LOWORD(lParam);
-			click_mouse_y = HIWORD(lParam);
+			if (state == 0)
+			{
+				click_mouse_x = LOWORD(lParam);
+				click_mouse_y = HIWORD(lParam);
+			}
+			else if (state == 1)
+			{
+				mouse_x = LOWORD(lParam);
+				mouse_y = HIWORD(lParam);
+			}
+			++state;
 		}		
 		break;
 	case WM_LBUTTONUP:
@@ -147,9 +173,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_MOUSEMOVE:
 		{
-			mouse_x = LOWORD(lParam);
-			mouse_y = HIWORD(lParam);
-
+//			mouse_x = LOWORD(lParam);
+//			mouse_y = HIWORD(lParam);
 			::InvalidateRect(hWnd, NULL, TRUE);			
 		}
 		break;
