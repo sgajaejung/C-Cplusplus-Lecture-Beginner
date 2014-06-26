@@ -1,11 +1,40 @@
 #include <windows.h>
-
+#include <math.h>
 bool isClick = false;
 int click_mouse_x;
 int click_mouse_y;
 int mouse_x;
 int mouse_y;
+int paint_x;
+int paint_y;
 int state = 0;
+
+struct Vector
+{
+	float x,y;
+};
+
+float Magnitude(Vector v)
+{
+	return sqrt( (v.x*v.x + v.y*v.y) );
+}
+
+Vector Normalize(Vector v)
+{
+	const float len = Magnitude(v);
+	Vector r;
+	r.x = v.x / len;
+	r.y = v.y / len;
+	return r;
+}
+
+Vector Multi(Vector v, float a)
+{
+	Vector r;
+	r.x = v.x * a;
+	r.y = v.y * a;
+	return r;
+}
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -118,7 +147,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 //			LineTo(hdc, mouse_x, mouse_y);
 //			EndPaint(hWnd, &ps);
 //			Render(hdc);
-			
+
+/*
 			if (state >= 2)
 			{
 				int pos1_x = click_mouse_x;
@@ -127,13 +157,26 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				int pos2_y = mouse_y;
 				float slop = (float)(pos2_y - pos1_y) / 
 					(float)(pos2_x - pos1_x);
-				for (int i=0; i < pos2_x-pos1_x; ++i)
+				const int inc = (pos2_x > pos1_x)? 1 : -1;
+				for (int i=0; abs(i) < abs(pos2_x-pos1_x); i += inc)
 				{
 					int x = i + pos1_x;
 					int y = (int)(slop*i + pos1_y);
 					SetPixel(hdc, x, y, RGB(255,0,0));
 				}
 			}
+*/
+
+			const int maxCnt = 20;
+			int cnt=0;
+			while (cnt < maxCnt)
+			{
+				const int x = rand() % 30 + paint_x - 15;
+				const int y = rand() % 30 + paint_y - 15;
+				SetPixel(hdc, x, y, RGB(255,0,0));
+				++cnt;
+			}
+/**/
 			
 /*
 			if (isClick)
@@ -144,6 +187,36 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 					dragR.right, dragR.bottom);
 			}
 */
+/*
+			Vector p0;
+			p0.x = 100;
+			p0.y = 100;
+			Vector p1;
+			p1.x = 400;
+			p1.y = 200;
+
+			Vector v;
+			v.x = p1.x - p0.x;
+			v.y = p1.y - p0.y;
+			const float len = Magnitude(v);
+			Vector r = Normalize(v);
+
+			for (int i=0; i < len; ++i)
+			{
+				Vector p = Multi(r,i);
+				Vector dest;
+				dest.x = p0.x + p.x;
+				dest.y = p0.y + p.y;
+				SetPixel(hdc, dest.x, dest.y, RGB(255,0,0));
+			}
+*/
+			COLORREF rgb = GetPixel(hdc, 100, 100);
+			if (rgb == RGB(100,100,100))
+			{
+
+			}
+
+
 			EndPaint(hWnd, &ps);
 		}
 		break;
@@ -174,9 +247,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_MOUSEMOVE:
 		{
-//			mouse_x = LOWORD(lParam);
-//			mouse_y = HIWORD(lParam);
-			::InvalidateRect(hWnd, NULL, TRUE);			
+			paint_x = LOWORD(lParam);
+			paint_y = HIWORD(lParam);
+			::InvalidateRect(hWnd, NULL, FALSE);			
 		}
 		break;
 

@@ -118,22 +118,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 //			LineTo(hdc, mouse_x, mouse_y);
 //			EndPaint(hWnd, &ps);
 //			Render(hdc);
-			
-			if (state >= 2)
-			{
-				int pos1_x = click_mouse_x;
-				int pos1_y = click_mouse_y;
-				int pos2_x = mouse_x;
-				int pos2_y = mouse_y;
-				float slop = (float)(pos2_y - pos1_y) / 
-					(float)(pos2_x - pos1_x);
-				for (int i=0; i < pos2_x-pos1_x; ++i)
-				{
-					int x = i + pos1_x;
-					int y = (int)(slop*i + pos1_y);
-					SetPixel(hdc, x, y, RGB(255,0,0));
-				}
-			}
+/*
+
+/**/
+
+
+
 			
 /*
 			if (isClick)
@@ -174,8 +164,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_MOUSEMOVE:
 		{
-//			mouse_x = LOWORD(lParam);
-//			mouse_y = HIWORD(lParam);
+			paint_x = LOWORD(lParam);
+			paint_y = HIWORD(lParam);
 			::InvalidateRect(hWnd, NULL, TRUE);			
 		}
 		break;
