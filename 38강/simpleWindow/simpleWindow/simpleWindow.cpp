@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <math.h>
+#include <string>
+using namespace std;
 bool isClick = false;
 int click_mouse_x;
 int click_mouse_y;
@@ -8,33 +10,8 @@ int mouse_y;
 int paint_x;
 int paint_y;
 int state = 0;
-
-struct Vector
-{
-	float x,y;
-};
-
-float Magnitude(Vector v)
-{
-	return sqrt( (v.x*v.x + v.y*v.y) );
-}
-
-Vector Normalize(Vector v)
-{
-	const float len = Magnitude(v);
-	Vector r;
-	r.x = v.x / len;
-	r.y = v.y / len;
-	return r;
-}
-
-Vector Multi(Vector v, float a)
-{
-	Vector r;
-	r.x = v.x * a;
-	r.y = v.y * a;
-	return r;
-}
+int state2 = 0;
+HINSTANCE g_hInstance;
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -49,6 +26,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	LPSTR lpCmdLine, 
 	int nCmdShow)
 {
+	g_hInstance = hInstance;
 	wchar_t className[32] = L"SimpleWindow";
 	wchar_t windowName[32] = L"SimpleWindow";
 
@@ -131,91 +109,27 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	case WM_PAINT: // 화면이 갱신될 때 호출된다.
 		{
 			hdc = BeginPaint(hWnd, &ps);
-/*
-			RECT r = {100, 100, 140, 140};
-			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
 
-			if (PointInRect(r, mouse_x, mouse_y))
-			{
-				TextOutA(hdc, 10, 10, "ssss", 4);
-			}
-*/
-//			Rectangle(hdc, r.left, r.top, r.right, r.bottom);
-//			Ellipse(hdc, r.left+100, r.top+200, r.right+100, r.bottom+200);
+			string str;
+			TextOutA(hdc, 100, 100, str.c_str(), str.length());
 
-//			MoveToEx(hdc, 100, 100, NULL);
-//			LineTo(hdc, mouse_x, mouse_y);
-//			EndPaint(hWnd, &ps);
-//			Render(hdc);
-
-/*
-			if (state >= 2)
-			{
-				int pos1_x = click_mouse_x;
-				int pos1_y = click_mouse_y;
-				int pos2_x = mouse_x;
-				int pos2_y = mouse_y;
-				float slop = (float)(pos2_y - pos1_y) / 
-					(float)(pos2_x - pos1_x);
-				const int inc = (pos2_x > pos1_x)? 1 : -1;
-				for (int i=0; abs(i) < abs(pos2_x-pos1_x); i += inc)
-				{
-					int x = i + pos1_x;
-					int y = (int)(slop*i + pos1_y);
-					SetPixel(hdc, x, y, RGB(255,0,0));
-				}
-			}
-*/
-
-			const int maxCnt = 20;
-			int cnt=0;
-			while (cnt < maxCnt)
-			{
-				const int x = rand() % 30 + paint_x - 15;
-				const int y = rand() % 30 + paint_y - 15;
-				SetPixel(hdc, x, y, RGB(255,0,0));
-				++cnt;
-			}
-/**/
+			Rectangle(hdc, 100, 30, 150, 60);
+			TextOutA(hdc, 100, 30, "Pen", 3);
 			
-/*
-			if (isClick)
-			{
-				RECT dragR = {click_mouse_x, click_mouse_y,
-					mouse_x, mouse_y};
-				Rectangle(hdc, dragR.left, dragR.top,
-					dragR.right, dragR.bottom);
-			}
-*/
-/*
-			Vector p0;
-			p0.x = 100;
-			p0.y = 100;
-			Vector p1;
-			p1.x = 400;
-			p1.y = 200;
+			Rectangle(hdc, 200, 30, 250, 60);
+			TextOutA(hdc, 200, 30, "Paint", 5);
 
-			Vector v;
-			v.x = p1.x - p0.x;
-			v.y = p1.y - p0.y;
-			const float len = Magnitude(v);
-			Vector r = Normalize(v);
-
-			for (int i=0; i < len; ++i)
-			{
-				Vector p = Multi(r,i);
-				Vector dest;
-				dest.x = p0.x + p.x;
-				dest.y = p0.y + p.y;
-				SetPixel(hdc, dest.x, dest.y, RGB(255,0,0));
-			}
-*/
 			COLORREF rgb = GetPixel(hdc, 100, 100);
-			if (rgb == RGB(100,100,100))
+
+			if (state2 == 0)
 			{
-
+				static int sx = paint_x;
+				static int sy = paint_y;
+				MoveToEx(hdc, sx, sy, NULL);
+				LineTo(hdc, paint_x, paint_y);
+				sx = paint_x;
+				sy = paint_y;
 			}
-
 
 			EndPaint(hWnd, &ps);
 		}
@@ -226,6 +140,23 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 
 	case WM_LBUTTONDOWN:
 		{
+			POINT pos;
+			pos.x = LOWORD(lParam);
+			pos.y = HIWORD(lParam);
+
+			RECT r1 = {100, 30, 150, 60};
+			RECT r2 = {200, 30, 250, 60};
+
+			if (PtInRect(&r1,pos))
+			{
+				state2 = 0;
+			}
+
+			if (PtInRect(&r2,pos))
+			{
+				state2 = 1;
+			}
+
 			isClick = true;
 			if (state == 0)
 			{
@@ -250,6 +181,16 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			paint_x = LOWORD(lParam);
 			paint_y = HIWORD(lParam);
 			::InvalidateRect(hWnd, NULL, FALSE);			
+		}
+		break;
+
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+		case VK_LEFT:
+			break;
+		case 'A':
+			break;
 		}
 		break;
 

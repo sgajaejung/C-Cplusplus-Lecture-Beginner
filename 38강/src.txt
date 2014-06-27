@@ -1,0 +1,32 @@
+
+void func(sx, sy)
+{
+	if (selrgb == getpixel(sx,sy))
+	{
+		setpixel(x,y)
+
+		func(sx, sy)
+		func(sx, sy)
+		func(sx, sy)
+		func(sx, sy)
+	}
+}
+
+
+selrgb
+x,y = sx, sy
+array.push( x, y )
+
+while (!array.empty())
+{
+	x,y = array.pop
+	if (selrgb == getpixel(x,y))
+	{
+		setpixel(x,y,rgb)
+		array.push( x, y)
+		array.push( x, y)
+		array.push( x, y)
+		array.push( x, y)
+	}
+}
+
