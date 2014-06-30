@@ -144,6 +144,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			pos.x = LOWORD(lParam);
 			pos.y = HIWORD(lParam);
 
+			
+
 			RECT r1 = {100, 30, 150, 60};
 			RECT r2 = {200, 30, 250, 60};
 
