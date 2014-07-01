@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <math.h>
 #include <string>
+#include <vector>
 using namespace std;
 bool isClick = false;
 int click_mouse_x;
@@ -9,9 +10,12 @@ int mouse_x;
 int mouse_y;
 int paint_x;
 int paint_y;
+int fill_x;
+int fill_y;
 int state = 0;
 int state2 = 0;
 HINSTANCE g_hInstance;
+bool fillPaint = false;
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -119,8 +123,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			Rectangle(hdc, 200, 30, 250, 60);
 			TextOutA(hdc, 200, 30, "Paint", 5);
 
-			COLORREF rgb = GetPixel(hdc, 100, 100);
-
+			
 			if (state2 == 0)
 			{
 				static int sx = paint_x;
@@ -129,6 +132,52 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				LineTo(hdc, paint_x, paint_y);
 				sx = paint_x;
 				sy = paint_y;
+			}
+
+
+			if (fillPaint == true)
+			{
+				fillPaint = false;
+				std::vector<POINT> array(1000000);
+				array[ 0].x = fill_x;
+				array[ 0].y = fill_y;
+				int cnt = 1;
+				COLORREF orig_color = GetPixel(hdc, fill_x, fill_y);
+
+				while (cnt > 0)
+				{
+					POINT pos = array[ cnt-1];
+					--cnt;
+					COLORREF color = GetPixel(hdc, pos.x, pos.y);
+					if (color == orig_color)
+					{
+						SetPixel(hdc, pos.x, pos.y, RGB(255,0,255));
+
+						POINT env[4] = {{-1,0}, {0,-1}, {1,0}, {0,1}};
+						for (int i=0; i < 4; ++i)
+						{
+							int x = pos.x + env[ i].x;
+							int y = pos.y + env[ i].y;
+							if ((x < 0) || (x > 1000))
+								continue;
+							if ((y < 0) || (y > 1000))
+								continue;
+							if (GetPixel(hdc, x, y) != orig_color)
+								continue;
+							
+							array[ cnt].x = x;
+							array[ cnt].y = y;
+							++cnt;
+
+							if (cnt >= 1000000)
+							{
+								cnt = 0;
+								break;
+							}
+
+						}
+					}
+				}
 			}
 
 			EndPaint(hWnd, &ps);
@@ -144,8 +193,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			pos.x = LOWORD(lParam);
 			pos.y = HIWORD(lParam);
 
-			
-
 			RECT r1 = {100, 30, 150, 60};
 			RECT r2 = {200, 30, 250, 60};
 
@@ -153,11 +200,20 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			{
 				state2 = 0;
 			}
-
-			if (PtInRect(&r2,pos))
+			else if (PtInRect(&r2,pos))
 			{
 				state2 = 1;
 			}
+			else
+			{
+				if (state2 == 1)
+				{
+					fill_x = pos.x;
+					fill_y = pos.y;
+					fillPaint = true;
+				}
+			}
+		
 
 			isClick = true;
 			if (state == 0)
