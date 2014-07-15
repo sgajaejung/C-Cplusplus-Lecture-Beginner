@@ -20,8 +20,11 @@ Font *g_font;
 Pen *g_pen; // Ææ °´Ã¼.
 Pen *g_whitePen; // Ææ °´Ã¼.
 Pen *g_blackPen; // Ææ °´Ã¼.
+Pen *g_greenPen; // Ææ °´Ã¼.
 Brush *g_blackBrush; // ºê·¯½¬ °´Ã¼.
 Brush *g_whiteBrush; // ºê·¯½¬ °´Ã¼.
+Brush *g_greenBrush;
+Brush *g_blueBrush;
 Brush *g_brush; // ºê·¯½¬ °´Ã¼.
 Brush *g_yellowBrush;
 Image *g_image;
@@ -48,16 +51,19 @@ int frame = 0;
 wstring frameStr;
 
 const float pi = 3.1415f;
+const float cellSize = 20.f;
+
 
 struct Block
 {
 	int x,y;
-	int type;
+	int type; // 0, 1=gun, 2=engine
 
 	Block() {}
-	Block(int x0, int y0):x(x0), y(y0) {}
+	Block(int x0, int y0):x(x0), y(y0), type(0) {}
 };
 std::vector<Block> g_ship;
+Point g_shipPos(100,100);
 
 
 
@@ -70,13 +76,21 @@ void DrawString( Graphics *graphics, int x, int y, const wstring &str);
 void MainLoop(int elapseT);
 Rect GetAnimationRect(int elapseT);
 Rect GetAnimationRect2(int elapseT);
-void DrawHaxagon(Graphics *graphic, const int x, const int y, 
+
+void DrawHexagon(Graphics *graphic, const int x, const int y, 
 	Brush *brush, Pen *pen, const bool isFill);
+
+void DrawHexagonGun(Graphics *graphic, const int x, const int y, 
+	Brush *brush, Pen *pen );
+
+void DrawHexagonEngine(Graphics *graphic, const int x, const int y, 
+	Brush *brush, Pen *pen );
+
 void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos );
-Block GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos);
-void DrawShipBlock( Graphics *graphic, 
-	Point shipPos, int x, int y,
-	Brush *brush, Pen *pen);
+Block& GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos);
+void DrawShipBlock( Graphics *graphic, Point shipPos, Block block, Brush *brush, Pen *pen);
+void DrawShipBlockOption( Graphics *graphic, 
+	Point shipPos, Block block, Brush *brush, Pen *pen);
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
@@ -194,13 +208,15 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			Rect wndSize(cr.left, cr.top, cr.right, cr.bottom);
 
 			graph->DrawImage(g_image, wndSize);
+			
+			graph->DrawImage(g_image3, wndSize);
 
-			DrawShip(graph, g_ship, Point(100,100));
+			DrawShip(graph, g_ship, g_shipPos);
 
-			Block selBlock = GetBlockInPos(g_ship, Point(100,100), g_mousePos);
+			Block selBlock = GetBlockInPos(g_ship, g_shipPos, g_mousePos);
 			if (selBlock.x >= 0 && selBlock.y >= 0)
 			{
-				DrawShipBlock(graph, Point(100,100), selBlock.x, selBlock.y, 
+				DrawShipBlock(graph, g_shipPos, selBlock, 
 					g_yellowBrush, g_blackPen);
 			}
 
@@ -218,6 +234,25 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		{
 			g_IsClick = true;
 			g_mouseClickPos = Point(LOWORD(lParam), HIWORD(lParam));
+
+			Block &selBlock = GetBlockInPos(g_ship, g_shipPos, g_mouseClickPos);
+			if (selBlock.x >= 0 && selBlock.y >= 0)
+			{
+				selBlock.type = 1;
+			}
+		}
+		break;
+
+	case WM_RBUTTONDOWN:
+		{
+			g_IsClick = true;
+			g_mouseClickPos = Point(LOWORD(lParam), HIWORD(lParam));
+
+			Block &selBlock = GetBlockInPos(g_ship, g_shipPos, g_mouseClickPos);
+			if (selBlock.x >= 0 && selBlock.y >= 0)
+			{
+				selBlock.type = 2;
+			}
 		}
 		break;
 
@@ -280,17 +315,20 @@ void InitGdiPlus(HWND hWnd)
 	g_pen = new Pen(Color::Red);
 	g_whitePen = new Pen(Color::White);
 	g_blackPen = new Pen(Color::Black);
+	g_greenPen = new Pen(Color::Green);
 	g_brush = new SolidBrush(Color::White);
 	//g_yellowBrush = new SolidBrush(Color::Yellow);
 	g_yellowBrush = new HatchBrush(HatchStyleNarrowVertical, Color::Yellow);
 	g_blackBrush = new SolidBrush(0xFF000000);
 	g_whiteBrush = new SolidBrush(0xFFFFFFFF);
+	g_greenBrush = new SolidBrush(0xFF00FF00);
+	g_blueBrush = new SolidBrush(0xFF0000FF);
 	g_font = new Font(L"Arial", 16);
 	//g_image = Image::FromFile(L"Kang_So_Ra9.jpg");
 	g_image = Image::FromFile(L"space-wallpaper-5_2.jpg");
 	g_image2 = Image::FromFile(L"sprite1.png");
 	//g_image3 = Image::FromFile(L"explosion_opaque.png");
-	g_image3 = Image::FromFile(L"explode_1.png");
+	g_image3 = Image::FromFile(L"samplebx.png");
 
 
 	RECT cr;
@@ -357,10 +395,18 @@ void InitGdiPlus(HWND hWnd)
 	g_ship.push_back(Block(7,8));
 	g_ship.push_back(Block(8,8));
 
+	g_ship.push_back(Block(1,9));
+	g_ship.push_back(Block(2,9));
 	g_ship.push_back(Block(3,9));
 	g_ship.push_back(Block(4,9));
 	g_ship.push_back(Block(5,9));
 	g_ship.push_back(Block(6,9));
+	g_ship.push_back(Block(7,9));
+
+	g_ship.push_back(Block(3,10));
+	g_ship.push_back(Block(4,10));
+	g_ship.push_back(Block(5,10));
+	g_ship.push_back(Block(6,10));
 }
 
 
@@ -373,10 +419,13 @@ void ReleaseGdiPlus()
 	delete g_pen;
 	delete g_whitePen;
 	delete g_blackPen;
+	delete g_greenPen;
 	delete g_brush;
 	delete g_yellowBrush;
 	delete g_blackBrush;
 	delete g_whiteBrush;
+	delete g_greenBrush;
+	delete g_blueBrush;
 	delete g_graphics;
 	delete g_bmp;
 	// Shutdown Gdiplus 
@@ -464,11 +513,11 @@ void MainLoop(int elapseT)
 }
 
 
-void DrawHaxagon(Graphics *graphic, const int x, const int y, 
+void DrawHexagon(Graphics *graphic, const int x, const int y, 
 	Brush *brush, Pen *pen, const bool isFill)
 {
 	GraphicsPath path;
-	float radius = 30;
+	float radius = cellSize;
 	float angle = pi/2.f;
 	Point offset(x,y);
 	Point points[6];
@@ -487,46 +536,146 @@ void DrawHaxagon(Graphics *graphic, const int x, const int y,
 		graphic->DrawPath(pen, &path);
 }
 
-void DrawShipBlock( Graphics *graphic, 
-	Point shipPos, int x, int y,
-	Brush *brush, Pen *pen)
-{
-	const int width = (int)(cos(pi/6.f) * 30);
-	const int height = (int)(cos(pi/3.f) * 30);
 
-	int dstX = (int)(x * width*2.f) + shipPos.X;
-	int dstY = (int)(y * (30+height)) + shipPos.Y;
-	if ((y % 2) == 1)
+void DrawHexagonGun(Graphics *graphic, const int x, const int y, 
+	Brush *brush, Pen *pen )
+{
+	GraphicsPath path;
+	Point points[4];
+	points[ 0] = Point(0, -cellSize/2);
+	points[ 1] = Point(cellSize, -cellSize/2);
+	points[ 2] = Point(cellSize, cellSize/2);
+	points[ 3] = Point(0, cellSize/2);
+	for (int i=0; i < 4; ++i)
+		points[ i] = points[ i];
+
+	path.AddPolygon(points, 4);
+
+
+	Point diff = g_mousePos - Point(x,y);
+	float rad = atan((float)diff.Y/(float)diff.X);
+	int angle = (int)(180.f/pi * rad);
+	if (diff.X < 0)
+		angle += 180;
+
+	Matrix R;
+	R.Rotate(angle);
+	Matrix T;
+	T.Translate(x, y);
+	T.Multiply(&R);
+	path.Transform( &T );
+
+
+	graphic->DrawPath(pen, &path);
+	graphic->FillPath(brush, &path);
+
+	{ // ÃÑ±¸.
+		const float length = cellSize;
+		GraphicsPath path;
+		Point points[4];
+		points[ 0] = Point(cellSize, -cellSize/6);
+		points[ 1] = Point(cellSize+length, -cellSize/6);
+		points[ 2] = Point(cellSize+length, cellSize/6);
+		points[ 3] = Point(cellSize, cellSize/6);
+		for (int i=0; i < 4; ++i)
+			points[ i] = points[ i];//+ Point(x,y);
+
+		path.AddPolygon(points, 4);
+		path.Transform( &T );
+		graphic->DrawPath(pen, &path);
+		graphic->FillPath(brush, &path);
+	}
+
+}
+
+
+void DrawHexagonEngine(Graphics *graphic, const int x, const int y, 
+	Brush *brush, Pen *pen )
+{
+	GraphicsPath path;
+	Point points[4];
+	points[ 0] = Point(0, -cellSize/2);
+	points[ 1] = Point(-cellSize, -cellSize/2);
+	points[ 2] = Point(-cellSize, cellSize/2);
+	points[ 3] = Point(0, cellSize/2);
+	for (int i=0; i < 4; ++i)
+		points[ i] = points[ i] + Point(x,y);
+
+	path.AddPolygon(points, 4);
+	graphic->DrawPath(pen, &path);
+	graphic->FillPath(brush, &path);
+}
+
+
+void DrawShipBlock( Graphics *graphic, 
+	Point shipPos, Block block, Brush *brush, Pen *pen)
+{
+	const int width = (int)(cos(pi/6.f) * cellSize);
+	const int height = (int)(cos(pi/3.f) * cellSize);
+
+	int dstX = (int)(block.x * width*2.f) + shipPos.X;
+	int dstY = (int)(block.y * (cellSize+height)) + shipPos.Y;
+	if ((block.y % 2) == 1)
 	{
 		dstX += width;
 	}
-	DrawHaxagon(graphic, dstX, dstY, brush, pen, true);
-	DrawHaxagon(graphic, dstX, dstY, brush, pen, false);
+	DrawHexagon(graphic, dstX, dstY, brush, pen, true);
+	DrawHexagon(graphic, dstX, dstY, brush, pen, false);
+}
+
+
+void DrawShipBlockOption( Graphics *graphic, 
+	Point shipPos, Block block, Brush *brush, Pen *pen)
+{
+	const int width = (int)(cos(pi/6.f) * cellSize);
+	const int height = (int)(cos(pi/3.f) * cellSize);
+
+	int dstX = (int)(block.x * width*2.f) + shipPos.X;
+	int dstY = (int)(block.y * (cellSize+height)) + shipPos.Y;
+	if ((block.y % 2) == 1)
+	{
+		dstX += width;
+	}
+
+	if (block.type == 1)
+	{
+		DrawHexagonGun(graphic, dstX, dstY, g_greenBrush, g_blackPen);
+	}
+	else if (block.type == 2)
+	{
+		DrawHexagonEngine(graphic, dstX, dstY, g_blueBrush, g_blackPen);
+	}
 }
 
 
 void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos )
 {
-	const int width = (int)(cos(pi/6.f) * 30);
-	const int height = (int)(cos(pi/3.f) * 30);
+	const int width = (int)(cos(pi/6.f) * cellSize);
+	const int height = (int)(cos(pi/3.f) * cellSize);
 
-	for (int i=0; i < (int)ship.size(); ++i)
+	for (int i=ship.size()-1; i >= 0; --i)
 	{
-		DrawShipBlock(graphic, pos, ship[ i].x, ship[ i].y,
+		DrawShipBlock(graphic, pos, ship[ i],
+			g_whiteBrush, g_blackPen);
+	}
+
+	for (int i=ship.size()-1; i >= 0; --i)
+	{
+		DrawShipBlockOption(graphic, pos, ship[ i],
 			g_whiteBrush, g_blackPen);
 	}
 }
 
 
-Block GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos)
+Block& GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos)
 {
-	const int width = (int)(cos(pi/6.f) * 30);
-	const int height = (int)(cos(pi/3.f) * 30);
+	const int width = (int)(cos(pi/6.f) * cellSize);
+	const int height = (int)(cos(pi/3.f) * cellSize);
 
 	for (int i=0; i < (int)ship.size(); ++i)
 	{
 		int x = (int)(ship[ i].x * width*2.f) + shipPos.X;
-		int y = (int)(ship[ i].y * (30+height)) + shipPos.Y;
+		int y = (int)(ship[ i].y * (cellSize+height)) + shipPos.Y;
 		if ((ship[ i].y % 2) == 1)
 		{
 			x += width;
@@ -534,11 +683,12 @@ Block GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos)
 
 		Point diff = Point(x,y) - pos;
 		const float len = (float)sqrt((double)(diff.X*diff.X + diff.Y*diff.Y));
-		if (30.f > len)
+		if (cellSize > len)
 		{
 			return ship[ i];
 		}
 	}
 
-	return Block(-1,-1);
+	static Block emptyBlock(-1,-1);
+	return emptyBlock;
 }
