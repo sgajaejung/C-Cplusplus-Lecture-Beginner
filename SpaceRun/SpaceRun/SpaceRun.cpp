@@ -29,7 +29,7 @@ Brush *g_brush; // 브러쉬 객체.
 Brush *g_yellowBrush;
 Image *g_image;
 Image *g_image2;
-Image *g_image3;
+Image *g_flameImage;
 Bitmap *g_bmp;
 HWND g_hWnd;
 
@@ -43,6 +43,9 @@ Rect g_bulletSrc;
 Rect g_block(800, 300, 150, 1000);
 Rect g_block2(1300, 0, 150, 400);
 Rect g_explosion(0, 0, 64, 64);
+Rect g_flameSrc(0, 0, 0, 0);
+Rect g_flameDst(100, 100, 64, 64);
+
 bool g_isCollision = false;
 
 int g_incT = 0;
@@ -65,6 +68,12 @@ struct Block
 std::vector<Block> g_ship;
 Point g_shipPos(100,100);
 
+vector<Point> g_dust;
+float g_scrollPos = 0;
+Rect g_scrollDstRect1;
+Rect g_scrollSrcRect1;
+Rect g_scrollDstRect2;
+Rect g_scrollSrcRect2;
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -98,8 +107,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	LPSTR lpCmdLine, 
 	int nCmdShow)
 {
-	wchar_t className[32] = L"Gradius";
-	wchar_t windowName[32] = L"Gradius";
+	wchar_t className[32] = L"Space Run";
+	wchar_t windowName[32] = L"Space Run";
 
 	//윈도우 클레스 정보 생성
 	//내가 이러한 윈도를 만들겠다 라는 정보
@@ -206,11 +215,27 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			RECT cr;
 			GetClientRect(hWnd, &cr);
 			Rect wndSize(cr.left, cr.top, cr.right, cr.bottom);
+			//graph->DrawImage(g_image, wndSize);
+			graph->DrawImage(g_image, g_scrollDstRect1, 
+				g_scrollSrcRect1.X, g_scrollSrcRect1.Y, 
+				g_scrollSrcRect1.Width, g_scrollSrcRect1.Height, UnitPixel);
 
-			graph->DrawImage(g_image, wndSize);
+			if (g_scrollSrcRect1.Width < 1024)
+			{
+				graph->DrawImage(g_image, g_scrollDstRect2, 
+					g_scrollSrcRect2.X, g_scrollSrcRect2.Y, 
+					g_scrollSrcRect2.Width, g_scrollSrcRect2.Height, UnitPixel);
+			}
+
+			//graph->DrawImage(g_flameImage, wndSize);
+
+			for (int i=0; i < g_dust.size(); ++i)
+			{
+				graph->DrawRectangle(g_whitePen, g_dust[ i].X, g_dust[ i].Y, 1, 1);
+			}
+
+
 			
-			graph->DrawImage(g_image3, wndSize);
-
 			DrawShip(graph, g_ship, g_shipPos);
 
 			Block selBlock = GetBlockInPos(g_ship, g_shipPos, g_mousePos);
@@ -219,7 +244,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				DrawShipBlock(graph, g_shipPos, selBlock, 
 					g_yellowBrush, g_blackPen);
 			}
-
 
 			DrawString(graph, 50, 0, frameStr);
 			g_graphics->DrawImage(g_bmp, wndSize);
@@ -325,16 +349,19 @@ void InitGdiPlus(HWND hWnd)
 	g_blueBrush = new SolidBrush(0xFF0000FF);
 	g_font = new Font(L"Arial", 16);
 	//g_image = Image::FromFile(L"Kang_So_Ra9.jpg");
-	g_image = Image::FromFile(L"space-wallpaper-5_2.jpg");
+	//g_image = Image::FromFile(L"space-wallpaper-5_2.jpg");
+	g_image = Image::FromFile(L"milky_way.jpg");	
 	g_image2 = Image::FromFile(L"sprite1.png");
 	//g_image3 = Image::FromFile(L"explosion_opaque.png");
-	g_image3 = Image::FromFile(L"samplebx.png");
+	g_flameImage = Image::FromFile(L"flame.png");
+	g_flameImage->RotateFlip(Rotate270FlipNone);
 
+	for (int i=0; i < 30; ++i)
+		g_dust.push_back( Point(rand()%1024, rand()%640) );
 
 	RECT cr;
 	GetClientRect(hWnd, &cr);
 	g_bmp = new Bitmap(cr.right-cr.left, cr.bottom-cr.top);
-
 
 	g_ship.push_back(Block(3,0));
 	g_ship.push_back(Block(4,0));
@@ -470,8 +497,45 @@ void MainLoop(int elapseT)
 	
 	g_X += (elapseT * 0.1f);
 	//g_bullet.X = (int)g_X;
-//	g_bulletSrc = GetAnimationRect(elapseT);
+	g_flameSrc = GetAnimationRect(elapseT);
 //	g_explosion = GetAnimationRect2(elapseT);
+
+	for (int i=0; i < g_dust.size(); ++i)
+	{
+		g_dust[ i].X -= (elapseT * 0.1f);
+		if (g_dust[ i].X < 0)
+		{
+			g_dust[ i].X = 1024;
+			g_dust[ i].Y = (rand() % 640);
+		}
+	}
+
+	g_scrollPos += (elapseT * 0.02f);
+	g_scrollDstRect1.X = 0;
+	g_scrollDstRect1.Y = 0;
+	g_scrollDstRect1.Width = min(1600-g_scrollPos, 1024);
+	g_scrollDstRect1.Height = 640;
+
+	g_scrollSrcRect1.X = g_scrollPos;
+	g_scrollSrcRect1.Y = 0;
+	g_scrollSrcRect1.Width = min(1600-g_scrollPos, 1024);
+	g_scrollSrcRect1.Height = 640;
+
+
+	g_scrollDstRect2.X = min(1600-g_scrollPos, 1024);
+	g_scrollDstRect2.Y = 0;
+	g_scrollDstRect2.Width = 1024-min(1600-g_scrollPos, 1024);
+	g_scrollDstRect2.Height = 640;
+
+	g_scrollSrcRect2.X = 0;
+	g_scrollSrcRect2.Y = 0;
+	g_scrollSrcRect2.Width = 1024-min(1600-g_scrollPos, 1024);
+	g_scrollSrcRect2.Height = 640;
+
+	if (g_scrollPos > 1600)
+	{
+		g_scrollPos = 0;
+	}
 
 
 	g_block.X -= (int)(elapseT * 0.2f);
@@ -604,6 +668,11 @@ void DrawHexagonEngine(Graphics *graphic, const int x, const int y,
 	path.AddPolygon(points, 4);
 	graphic->DrawPath(pen, &path);
 	graphic->FillPath(brush, &path);
+
+	Rect dest(x-64, y-32, 64, 64);
+	graphic->DrawImage(g_flameImage, dest, 
+		g_flameSrc.X, g_flameSrc.Y, g_flameSrc.Width, g_flameSrc.Height,
+		UnitPixel);
 }
 
 
@@ -691,4 +760,24 @@ Block& GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos)
 
 	static Block emptyBlock(-1,-1);
 	return emptyBlock;
+}
+
+
+Rect GetAnimationRect(int elapseT)
+{
+	static int t = 0;
+	static int idx = 0;
+	t += elapseT;
+
+	if (t > 25)
+	{
+		++idx;
+		if (idx >= 16)
+			idx = 0;
+	}
+
+	const int width = 64;
+	const int height = 64;
+
+	return Rect((idx%4)*width, (idx/4)*height, width, height);
 }
