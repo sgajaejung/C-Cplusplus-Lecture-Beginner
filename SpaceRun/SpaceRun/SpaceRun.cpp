@@ -21,8 +21,11 @@ Pen *g_pen; // ∆Ê ∞¥√º.
 Pen *g_whitePen; // ∆Ê ∞¥√º.
 Pen *g_blackPen; // ∆Ê ∞¥√º.
 Pen *g_greenPen; // ∆Ê ∞¥√º.
+Pen *g_yellowPen; // ∆Ê ∞¥√º.
+Pen *g_pinkPen; // ∆Ê ∞¥√º.
 Brush *g_blackBrush; // ∫Í∑ØΩ¨ ∞¥√º.
 Brush *g_whiteBrush; // ∫Í∑ØΩ¨ ∞¥√º.
+Brush *g_greyBrush; // ∫Í∑ØΩ¨ ∞¥√º.
 Brush *g_greenBrush;
 Brush *g_blueBrush;
 Brush *g_brush; // ∫Í∑ØΩ¨ ∞¥√º.
@@ -30,6 +33,7 @@ Brush *g_yellowBrush;
 Image *g_image;
 Image *g_image2;
 Image *g_flameImage;
+Image *g_enemyflameImage;
 Bitmap *g_bmp;
 HWND g_hWnd;
 
@@ -40,13 +44,9 @@ int g_hatchStyle = 0;
 
 Rect g_bullet(300, 400, 120, 120);
 Rect g_bulletSrc;
-Rect g_block(800, 300, 150, 1000);
-Rect g_block2(1300, 0, 150, 400);
 Rect g_explosion(0, 0, 64, 64);
 Rect g_flameSrc(0, 0, 0, 0);
 Rect g_flameDst(100, 100, 64, 64);
-
-bool g_isCollision = false;
 
 int g_incT = 0;
 int frameT = 0;
@@ -60,13 +60,20 @@ const float cellSize = 20.f;
 struct Block
 {
 	int x,y;
-	int type; // 0, 1=gun, 2=engine
+	int type; // 0, 1=gun, 2=engine, 3=enemy engine
+	int t;
+	Point target;
 
 	Block() {}
-	Block(int x0, int y0):x(x0), y(y0), type(0) {}
+	Block(int x0, int y0):x(x0), y(y0), type(0), t(0) {}
+	Block(int x0, int y0, int type0):x(x0), y(y0), type(type0), t(0) {}
 };
 std::vector<Block> g_ship;
 Point g_shipPos(100,100);
+
+std::vector<Block> g_enemy;
+Point g_enemyPos(900,100);
+PointF g_enemyPosF(900,100);
 
 vector<Point> g_dust;
 float g_scrollPos = 0;
@@ -74,6 +81,20 @@ Rect g_scrollDstRect1;
 Rect g_scrollSrcRect1;
 Rect g_scrollDstRect2;
 Rect g_scrollSrcRect2;
+
+
+struct Bullet
+{
+	bool use;
+	int owner;
+	float x;
+	float y;
+	float vx;
+	float vy;
+};
+vector<Bullet> g_bullets(200);
+
+
 
 
 // ƒ›πÈ «¡∑ŒΩ√¡Æ «‘ºˆ «¡∑Œ≈‰ ≈∏¿‘
@@ -90,16 +111,23 @@ void DrawHexagon(Graphics *graphic, const int x, const int y,
 	Brush *brush, Pen *pen, const bool isFill);
 
 void DrawHexagonGun(Graphics *graphic, const int x, const int y, 
-	Brush *brush, Pen *pen );
+	Block block, Brush *brush, Pen *pen );
 
 void DrawHexagonEngine(Graphics *graphic, const int x, const int y, 
-	Brush *brush, Pen *pen );
+	Brush *brush, Pen *pen, int type );
 
-void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos );
+void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos,
+	Brush *brush, Pen *pen);
 Block& GetBlockInPos( std::vector<Block> &ship, Point shipPos, Point pos);
 void DrawShipBlock( Graphics *graphic, Point shipPos, Block block, Brush *brush, Pen *pen);
 void DrawShipBlockOption( Graphics *graphic, 
 	Point shipPos, Block block, Brush *brush, Pen *pen);
+
+Point GetBlockPos(Block block, Point shipPos);
+
+Point GetMostNearBlockPos(Point originPos, std::vector<Block> &ship, Point shipPos);
+void SetBullet( Bullet bullet );
+
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
@@ -231,12 +259,11 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 
 			for (int i=0; i < g_dust.size(); ++i)
 			{
-				graph->DrawRectangle(g_whitePen, g_dust[ i].X, g_dust[ i].Y, 1, 1);
+				graph->DrawRectangle(g_whitePen, g_dust[ i].X, g_dust[ i].Y, 5, 1);
 			}
 
-
 			
-			DrawShip(graph, g_ship, g_shipPos);
+			DrawShip(graph, g_ship, g_shipPos, g_whiteBrush, g_blackPen);
 
 			Block selBlock = GetBlockInPos(g_ship, g_shipPos, g_mousePos);
 			if (selBlock.x >= 0 && selBlock.y >= 0)
@@ -244,6 +271,43 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				DrawShipBlock(graph, g_shipPos, selBlock, 
 					g_yellowBrush, g_blackPen);
 			}
+
+
+			DrawShip(graph, g_enemy, g_enemyPos, g_greyBrush, g_blackPen);
+
+
+			for (int i=0; i < g_bullets.size(); ++i)
+			{
+				if (!g_bullets[ i].use)
+					continue;
+
+				int x = g_bullets[ i].x + g_bullets[ i].vx * 50.f;
+				int y = g_bullets[ i].y + g_bullets[ i].vy * 50.f;
+
+				Pen *pen;
+				if (g_bullets[ i].owner == 0)
+				{
+					pen = g_pinkPen;
+				}
+				else
+				{
+					pen = g_yellowPen;
+				}
+
+				graph->DrawLine(pen, 
+					Point((int)g_bullets[ i].x, (int)g_bullets[ i].y),
+					Point(x,y));
+				graph->DrawLine(pen, 
+					Point((int)g_bullets[ i].x, (int)g_bullets[ i].y+1),
+					Point(x,y+1));
+				graph->DrawLine(pen, 
+					Point((int)g_bullets[ i].x, (int)g_bullets[ i].y+2),
+					Point(x,y+2));
+			}
+
+
+
+
 
 			DrawString(graph, 50, 0, frameStr);
 			g_graphics->DrawImage(g_bmp, wndSize);
@@ -340,11 +404,14 @@ void InitGdiPlus(HWND hWnd)
 	g_whitePen = new Pen(Color::White);
 	g_blackPen = new Pen(Color::Black);
 	g_greenPen = new Pen(Color::Green);
+	g_yellowPen = new Pen(Color::Yellow);
+	g_pinkPen = new Pen(Color::Red);
 	g_brush = new SolidBrush(Color::White);
 	//g_yellowBrush = new SolidBrush(Color::Yellow);
 	g_yellowBrush = new HatchBrush(HatchStyleNarrowVertical, Color::Yellow);
 	g_blackBrush = new SolidBrush(0xFF000000);
 	g_whiteBrush = new SolidBrush(0xFFFFFFFF);
+	g_greyBrush = new SolidBrush(0xFF999999);
 	g_greenBrush = new SolidBrush(0xFF00FF00);
 	g_blueBrush = new SolidBrush(0xFF0000FF);
 	g_font = new Font(L"Arial", 16);
@@ -355,6 +422,9 @@ void InitGdiPlus(HWND hWnd)
 	//g_image3 = Image::FromFile(L"explosion_opaque.png");
 	g_flameImage = Image::FromFile(L"flame.png");
 	g_flameImage->RotateFlip(Rotate270FlipNone);
+
+	g_enemyflameImage = Image::FromFile(L"flame.png");
+	g_enemyflameImage->RotateFlip(Rotate90FlipNone);	
 
 	for (int i=0; i < 30; ++i)
 		g_dust.push_back( Point(rand()%1024, rand()%640) );
@@ -434,6 +504,17 @@ void InitGdiPlus(HWND hWnd)
 	g_ship.push_back(Block(4,10));
 	g_ship.push_back(Block(5,10));
 	g_ship.push_back(Block(6,10));
+
+
+
+	g_enemy.push_back(Block(1,0, 1));
+	g_enemy.push_back(Block(2,0, 3));
+	g_enemy.push_back(Block(0,1));
+	g_enemy.push_back(Block(1,1));
+	g_enemy.push_back(Block(2,1));
+	g_enemy.push_back(Block(1,2, 1));
+	g_enemy.push_back(Block(2,2, 3));
+
 }
 
 
@@ -447,14 +528,19 @@ void ReleaseGdiPlus()
 	delete g_whitePen;
 	delete g_blackPen;
 	delete g_greenPen;
+	delete g_yellowPen;
+	delete g_pinkPen;
 	delete g_brush;
 	delete g_yellowBrush;
 	delete g_blackBrush;
 	delete g_whiteBrush;
+	delete g_greyBrush;
 	delete g_greenBrush;
 	delete g_blueBrush;
 	delete g_graphics;
 	delete g_bmp;
+	delete g_enemyflameImage;
+	delete g_flameImage;
 	// Shutdown Gdiplus 
 	Gdiplus::GdiplusShutdown(g_gdiplusToken); 
 }
@@ -471,34 +557,9 @@ void DrawString( Graphics *graphics, int x, int y, const wstring &str)
 }
 
 
-float g_X = 0;
-float velY = 0;
 void MainLoop(int elapseT)
 {
-	//g_bullet.Y += 3;
-	velY += 0.01f;
-	if (GetAsyncKeyState(VK_SPACE) & 0x8000)
-	{
-		//g_bullet.Y -= 6;
-		velY -= 0.05f;
-	}
-	g_bullet.Y += (int)(velY * elapseT);
-	if (g_bullet.Y < 0)
-	{
-		velY = 0;
-		g_bullet.Y = 0;
-	}
-	if (g_bullet.Y >= 550)
-	{
-		velY = 0;
-		g_bullet.Y = 550;
-	}
-
-	
-	g_X += (elapseT * 0.1f);
-	//g_bullet.X = (int)g_X;
 	g_flameSrc = GetAnimationRect(elapseT);
-//	g_explosion = GetAnimationRect2(elapseT);
 
 	for (int i=0; i < g_dust.size(); ++i)
 	{
@@ -509,6 +570,84 @@ void MainLoop(int elapseT)
 			g_dust[ i].Y = (rand() % 640);
 		}
 	}
+	
+
+	g_enemyPosF.X -= (elapseT * 0.001f);
+	g_enemyPos = Point((int)g_enemyPosF.X, (int)g_enemyPosF.Y);
+
+	for (int i=0; i < g_enemy.size(); ++i)
+	{
+		if (g_enemy[ i].type == 1)
+		{
+			g_enemy[ i].t += elapseT;
+			if (g_enemy[ i].t > 600)
+			{
+				g_enemy[ i].t = 0;
+				Point dst = GetBlockPos(g_enemy[ i], g_enemyPos);
+				Point target = GetMostNearBlockPos(dst, g_ship, g_shipPos);
+				g_enemy[ i].target = target;
+
+				Bullet bullet;
+				bullet.owner = 1;					 
+				bullet.x = dst.X;
+				bullet.y = dst.Y;
+				const int dx = target.X - dst.X;
+				const int dy = target.Y - dst.Y;
+				const int len = sqrt((double)(dx*dx + dy*dy));
+				float xx = (float)dx/(float)len;
+				float yy = (float)dy/(float)len;					
+
+				bullet.vx = xx * 0.1f;
+				bullet.vy = yy * 0.1f;
+				SetBullet(bullet);
+			}
+		}
+	}
+
+	// ¡÷¿Œ∞¯∆Ì √—æÀ πﬂªÁ.
+	for (int i=0; i < g_ship.size(); ++i)
+	{
+		if (g_ship[ i].type == 1)
+		{
+			g_ship[ i].t += elapseT;
+			if (g_ship[ i].t > 600)
+			{
+				g_ship[ i].t = 0;
+				Point dst = GetBlockPos(g_ship[ i], g_shipPos);
+				Point target = GetMostNearBlockPos(dst, g_enemy, g_enemyPos);
+				g_ship[ i].target = target;
+
+				Bullet bullet;
+				bullet.owner = 0;
+				bullet.x = dst.X;
+				bullet.y = dst.Y;
+				const int dx = target.X - dst.X;
+				const int dy = target.Y - dst.Y;
+				const int len = sqrt((double)(dx*dx + dy*dy));
+				float xx = (float)dx/(float)len;
+				float yy = (float)dy/(float)len;					
+
+				bullet.vx = xx * 0.1f;
+				bullet.vy = yy * 0.1f;
+				SetBullet(bullet);
+			}
+		}
+	}
+
+
+
+	// √—æÀ ¿Ãµø.
+	for (int i=0; i < g_bullets.size(); ++i)
+	{
+		if (g_bullets[ i].use)
+		{
+			g_bullets[ i].x += (elapseT * g_bullets[ i].vx);
+			g_bullets[ i].y += (elapseT * g_bullets[ i].vy);
+		}
+	}
+
+
+
 
 	g_scrollPos += (elapseT * 0.02f);
 	g_scrollDstRect1.X = 0;
@@ -538,29 +677,29 @@ void MainLoop(int elapseT)
 	}
 
 
-	g_block.X -= (int)(elapseT * 0.2f);
-	if (g_block.X <= -200)
+	// øµø™¿ª π˛æÓ≥≠ √—æÀ¿∫ ¡¶∞≈.
+	for (int i=0; i < g_bullets.size(); ++i)
 	{
-		g_block.X = 1000;
-		g_block.Y = rand()%600 + 100;
+		if (g_bullets[ i].use)
+		{
+			if (g_bullets[ i].x > 1024)
+			{
+				g_bullets[ i].use = false;
+			}
+			if (g_bullets[ i].x < 0)
+			{
+				g_bullets[ i].use = false;
+			}
+		}
 	}
 
-	g_block2.X -= (int)(elapseT * 0.2f);
-	if (g_block2.X <= -200)
+
+	// √Êµπ≈◊Ω∫∆Æ
+	for (int i=0; i < g_bullets.size(); ++i)
 	{
-		g_block2.X = 1000;
-		g_block2.Height = rand()%400 + 100;
+
 	}
 
-	g_isCollision = false;
-	if (g_bullet.IntersectsWith(g_block))
-		g_isCollision = true;
-	if (g_bullet.IntersectsWith(g_block2))
-		g_isCollision = true;	
-
-
-	if (g_X > 1000)
-		g_X = 0;
 
 	++frame;
 	frameT += elapseT;
@@ -602,7 +741,7 @@ void DrawHexagon(Graphics *graphic, const int x, const int y,
 
 
 void DrawHexagonGun(Graphics *graphic, const int x, const int y, 
-	Brush *brush, Pen *pen )
+	Block block, Brush *brush, Pen *pen )
 {
 	GraphicsPath path;
 	Point points[4];
@@ -615,8 +754,7 @@ void DrawHexagonGun(Graphics *graphic, const int x, const int y,
 
 	path.AddPolygon(points, 4);
 
-
-	Point diff = g_mousePos - Point(x,y);
+	Point diff = block.target - Point(x,y);
 	float rad = atan((float)diff.Y/(float)diff.X);
 	int angle = (int)(180.f/pi * rad);
 	if (diff.X < 0)
@@ -653,8 +791,8 @@ void DrawHexagonGun(Graphics *graphic, const int x, const int y,
 }
 
 
-void DrawHexagonEngine(Graphics *graphic, const int x, const int y, 
-	Brush *brush, Pen *pen )
+void DrawHexagonEngine( Graphics *graphic, const int x, const int y, 
+	Brush *brush, Pen *pen, Image *image, int type )
 {
 	GraphicsPath path;
 	Point points[4];
@@ -669,8 +807,17 @@ void DrawHexagonEngine(Graphics *graphic, const int x, const int y,
 	graphic->DrawPath(pen, &path);
 	graphic->FillPath(brush, &path);
 
-	Rect dest(x-64, y-32, 64, 64);
-	graphic->DrawImage(g_flameImage, dest, 
+	Rect dest;
+	if (2 == type)
+	{
+		dest = Rect(x-64, y-32, 64, 64);
+	}
+	else
+	{
+		dest = Rect(x, y-32, 64, 64);
+	}
+
+	graphic->DrawImage(image, dest, 
 		g_flameSrc.X, g_flameSrc.Y, g_flameSrc.Width, g_flameSrc.Height,
 		UnitPixel);
 }
@@ -679,45 +826,36 @@ void DrawHexagonEngine(Graphics *graphic, const int x, const int y,
 void DrawShipBlock( Graphics *graphic, 
 	Point shipPos, Block block, Brush *brush, Pen *pen)
 {
-	const int width = (int)(cos(pi/6.f) * cellSize);
-	const int height = (int)(cos(pi/3.f) * cellSize);
-
-	int dstX = (int)(block.x * width*2.f) + shipPos.X;
-	int dstY = (int)(block.y * (cellSize+height)) + shipPos.Y;
-	if ((block.y % 2) == 1)
-	{
-		dstX += width;
-	}
-	DrawHexagon(graphic, dstX, dstY, brush, pen, true);
-	DrawHexagon(graphic, dstX, dstY, brush, pen, false);
+	Point dst = GetBlockPos(block, shipPos);
+	DrawHexagon(graphic, dst.X, dst.Y, brush, pen, true);
+	DrawHexagon(graphic, dst.X, dst.Y, brush, pen, false);
 }
 
 
 void DrawShipBlockOption( Graphics *graphic, 
 	Point shipPos, Block block, Brush *brush, Pen *pen)
 {
-	const int width = (int)(cos(pi/6.f) * cellSize);
-	const int height = (int)(cos(pi/3.f) * cellSize);
-
-	int dstX = (int)(block.x * width*2.f) + shipPos.X;
-	int dstY = (int)(block.y * (cellSize+height)) + shipPos.Y;
-	if ((block.y % 2) == 1)
-	{
-		dstX += width;
-	}
+	Point dst = GetBlockPos(block, shipPos);
 
 	if (block.type == 1)
 	{
-		DrawHexagonGun(graphic, dstX, dstY, g_greenBrush, g_blackPen);
+		DrawHexagonGun(graphic, dst.X, dst.Y, block, g_greenBrush, g_blackPen);
 	}
 	else if (block.type == 2)
 	{
-		DrawHexagonEngine(graphic, dstX, dstY, g_blueBrush, g_blackPen);
+		DrawHexagonEngine(graphic, dst.X, dst.Y, g_blueBrush, g_blackPen,
+			g_flameImage, 2);
+	}
+	else if (block.type == 3)
+	{
+		DrawHexagonEngine(graphic, dst.X, dst.Y, g_blueBrush, g_blackPen,
+			g_enemyflameImage, 3);
 	}
 }
 
 
-void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos )
+void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos,
+	Brush *brush, Pen *pen)
 {
 	const int width = (int)(cos(pi/6.f) * cellSize);
 	const int height = (int)(cos(pi/3.f) * cellSize);
@@ -725,13 +863,13 @@ void DrawShip( Graphics *graphic, std::vector<Block> &ship, Point pos )
 	for (int i=ship.size()-1; i >= 0; --i)
 	{
 		DrawShipBlock(graphic, pos, ship[ i],
-			g_whiteBrush, g_blackPen);
+			brush, pen);
 	}
 
 	for (int i=ship.size()-1; i >= 0; --i)
 	{
 		DrawShipBlockOption(graphic, pos, ship[ i],
-			g_whiteBrush, g_blackPen);
+			brush, pen);
 	}
 }
 
@@ -780,4 +918,54 @@ Rect GetAnimationRect(int elapseT)
 	const int height = 64;
 
 	return Rect((idx%4)*width, (idx/4)*height, width, height);
+}
+
+
+Point GetBlockPos(Block block, Point shipPos)
+{
+	const int width = (int)(cos(pi/6.f) * cellSize);
+	const int height = (int)(cos(pi/3.f) * cellSize);
+
+	int dstX = (int)(block.x * width*2.f) + shipPos.X;
+	int dstY = (int)(block.y * (cellSize+height)) + shipPos.Y;
+	if ((block.y % 2) == 1)
+	{
+		dstX += width;
+	}
+
+	return Point(dstX, dstY);
+}
+
+
+Point GetMostNearBlockPos(Point originPos, std::vector<Block> &ship, Point shipPos)
+{
+	Point nearPos;
+	int nearLen = 10000000;
+	for (int i=0; i < ship.size(); ++i)
+	{
+		Point pos = GetBlockPos(ship[ i], shipPos);
+		Point p = originPos - pos;
+		const int len = p.X * p.X + p.Y * p.Y;
+		if (nearLen > len)
+		{
+			nearLen = len;
+			nearPos = pos;
+		}		
+	}
+
+	return nearPos;
+}
+
+
+void SetBullet( Bullet bullet )
+{
+	for (int i=0; i < g_bullets.size(); ++i)
+	{
+		if (!g_bullets[ i].use)
+		{
+			g_bullets[ i] = bullet;
+			g_bullets[ i].use = true;
+			break;
+		}
+	}
 }
