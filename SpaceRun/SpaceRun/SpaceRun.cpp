@@ -8,6 +8,7 @@
 #include <sstream>
 #include <time.h>
 #pragma comment( lib, "gdiplus.lib" ) 
+#pragma comment(lib, "winmm.lib") 
 using namespace std;
 using namespace Gdiplus;
 
@@ -34,6 +35,7 @@ Image *g_image;
 Image *g_image2;
 Image *g_flameImage;
 Image *g_enemyflameImage;
+Image *g_explosionImage;
 Bitmap *g_bmp;
 HWND g_hWnd;
 
@@ -62,18 +64,28 @@ struct Block
 	int x,y;
 	int type; // 0, 1=gun, 2=engine, 3=enemy engine
 	int t;
+	int life;
 	Point target;
 
-	Block() {}
-	Block(int x0, int y0):x(x0), y(y0), type(0), t(0) {}
-	Block(int x0, int y0, int type0):x(x0), y(y0), type(type0), t(0) {}
+	Block():life(100) {}
+	Block(int x0, int y0):x(x0), y(y0), type(0), t(0), life(100) {}
+	Block(int x0, int y0, int type0):x(x0), y(y0), type(type0), t(0), life(100) {}
 };
 std::vector<Block> g_ship;
 Point g_shipPos(100,100);
 
-std::vector<Block> g_enemy;
-Point g_enemyPos(900,100);
-PointF g_enemyPosF(900,100);
+struct Enemy
+{
+	int owner;
+	std::vector<Block> blocks;
+	Point pos;
+	PointF posF;
+	float vx;
+};
+std::vector<Enemy> g_enemys;
+std::vector<Enemy> g_heros;
+
+
 
 vector<Point> g_dust;
 float g_scrollPos = 0;
@@ -95,6 +107,17 @@ struct Bullet
 vector<Bullet> g_bullets(200);
 
 
+struct Explosion
+{
+	bool use;
+	int owner;
+	int t;
+	int idx;
+	float x;
+	float y;
+	Rect srcRect;
+};
+vector<Explosion> g_explosions(50);
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -106,6 +129,7 @@ void DrawString( Graphics *graphics, int x, int y, const wstring &str);
 void MainLoop(int elapseT);
 Rect GetAnimationRect(int elapseT);
 Rect GetAnimationRect2(int elapseT);
+Rect GetAnimationRectExplosion(int &t, int &idx);
 
 void DrawHexagon(Graphics *graphic, const int x, const int y, 
 	Brush *brush, Pen *pen, const bool isFill);
@@ -126,8 +150,15 @@ void DrawShipBlockOption( Graphics *graphic,
 Point GetBlockPos(Block block, Point shipPos);
 
 Point GetMostNearBlockPos(Point originPos, std::vector<Block> &ship, Point shipPos);
+Point GetMostNearEnemyBlockPos(Point originPos, std::vector<Enemy> &fights);
 void SetBullet( Bullet bullet );
+void SetExplosion( int owner, int x, int y );
 
+void DrawEnemy(Graphics *graphic, std::vector<Enemy> &fights);
+void MoveEnemy(std::vector<Enemy> &fights, int elapseT);
+void EnemyShoot(std::vector<Enemy> &targets, Enemy &enemy, const int elapseT);
+bool CheckEnemyCollision( std::vector<Enemy> &ships, int bulletX, int bulletY );
+void spawnBossEnemy(Enemy &enemy);
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
@@ -184,12 +215,9 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	// 윈도우를 화면에 띄운다.
 	ShowWindow( hWnd, nCmdShow );
 
-	InitGdiPlus(hWnd);
-
-	SetTimer(hWnd, 1, 5000, NULL);
-	SetTimer(hWnd, 2, 1000, NULL);
-
 	srand( (int)time(NULL) );
+
+	InitGdiPlus(hWnd);
 
 
 	//메시지 구조체
@@ -263,7 +291,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			}
 
 			
-			DrawShip(graph, g_ship, g_shipPos, g_whiteBrush, g_blackPen);
+			//DrawShip(graph, g_ship, g_shipPos, g_whiteBrush, g_blackPen);
+			DrawEnemy(graph, g_heros);
 
 			Block selBlock = GetBlockInPos(g_ship, g_shipPos, g_mousePos);
 			if (selBlock.x >= 0 && selBlock.y >= 0)
@@ -273,7 +302,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			}
 
 
-			DrawShip(graph, g_enemy, g_enemyPos, g_greyBrush, g_blackPen);
+			DrawEnemy(graph, g_enemys);
 
 
 			for (int i=0; i < g_bullets.size(); ++i)
@@ -306,6 +335,17 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			}
 
 
+			// explosion
+			for (int i=0; i < g_explosions.size(); ++i)
+			{
+				if (!g_explosions[ i].use)
+					continue;
+
+				graph->DrawImage(g_explosionImage, 
+					Rect(g_explosions[ i].x, g_explosions[ i].y, 96, 96),
+					g_explosions[ i].srcRect.X, g_explosions[ i].srcRect.Y, 
+					g_explosions[ i].srcRect.Width, g_explosions[ i].srcRect.Height, UnitPixel);
+			}
 
 
 
@@ -323,10 +363,13 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			g_IsClick = true;
 			g_mouseClickPos = Point(LOWORD(lParam), HIWORD(lParam));
 
-			Block &selBlock = GetBlockInPos(g_ship, g_shipPos, g_mouseClickPos);
-			if (selBlock.x >= 0 && selBlock.y >= 0)
+			for (int i=0; i < g_heros.size(); ++i)
 			{
-				selBlock.type = 1;
+				Block &selBlock = GetBlockInPos(g_heros[i].blocks, g_heros[ i].pos, g_mouseClickPos);
+				if (selBlock.x >= 0 && selBlock.y >= 0)
+				{
+					selBlock.type = 1;
+				}
 			}
 		}
 		break;
@@ -368,6 +411,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		case VK_DOWN:
 			--g_hatchStyle;
 			break;
+
+		case VK_SPACE:
+			sndPlaySoundA("ambience_rain_outside.wav", SND_ASYNC);
+			break;
 		}
 		break;
 
@@ -405,7 +452,7 @@ void InitGdiPlus(HWND hWnd)
 	g_blackPen = new Pen(Color::Black);
 	g_greenPen = new Pen(Color::Green);
 	g_yellowPen = new Pen(Color::Yellow);
-	g_pinkPen = new Pen(Color::Red);
+	g_pinkPen = new Pen(Color::Linen);
 	g_brush = new SolidBrush(Color::White);
 	//g_yellowBrush = new SolidBrush(Color::Yellow);
 	g_yellowBrush = new HatchBrush(HatchStyleNarrowVertical, Color::Yellow);
@@ -426,6 +473,8 @@ void InitGdiPlus(HWND hWnd)
 	g_enemyflameImage = Image::FromFile(L"flame.png");
 	g_enemyflameImage->RotateFlip(Rotate90FlipNone);	
 
+	g_explosionImage = Image::FromFile(L"lvxdmali.png");
+
 	for (int i=0; i < 30; ++i)
 		g_dust.push_back( Point(rand()%1024, rand()%640) );
 
@@ -433,87 +482,126 @@ void InitGdiPlus(HWND hWnd)
 	GetClientRect(hWnd, &cr);
 	g_bmp = new Bitmap(cr.right-cr.left, cr.bottom-cr.top);
 
-	g_ship.push_back(Block(3,0));
-	g_ship.push_back(Block(4,0));
-	g_ship.push_back(Block(5,0));
-	g_ship.push_back(Block(6,0));
 
-	g_ship.push_back(Block(1,1));
-	g_ship.push_back(Block(2,1));
-	g_ship.push_back(Block(3,1));
-	g_ship.push_back(Block(4,1));
-	g_ship.push_back(Block(5,1));
-	g_ship.push_back(Block(6,1));
-	g_ship.push_back(Block(7,1));
+	Enemy hero;
+	hero.owner = 0;
+	hero.vx = 0.001f;
+	hero.pos = g_shipPos;
+	hero.posF = PointF((float)g_shipPos.X, (float)g_shipPos.Y);
+/*
+	hero.blocks.push_back(Block(3,0));
+	hero.blocks.push_back(Block(4,0));
+	hero.blocks.push_back(Block(5,0));
+	hero.blocks.push_back(Block(6,0));
 
-	g_ship.push_back(Block(1,2));
-	g_ship.push_back(Block(2,2));
-	g_ship.push_back(Block(3,2));
-	g_ship.push_back(Block(4,2));
-	g_ship.push_back(Block(5,2));
-	g_ship.push_back(Block(6,2));
-	g_ship.push_back(Block(7,2));
-	g_ship.push_back(Block(8,2));
+	hero.blocks.push_back(Block(1,1));
+	hero.blocks.push_back(Block(2,1));
+	hero.blocks.push_back(Block(3,1));
+	hero.blocks.push_back(Block(4,1));
+	hero.blocks.push_back(Block(5,1));
+	hero.blocks.push_back(Block(6,1));
+	hero.blocks.push_back(Block(7,1));
 
-	g_ship.push_back(Block(0,3));
-	g_ship.push_back(Block(1,3));
-	g_ship.push_back(Block(2,3));
-	g_ship.push_back(Block(3,3));
-	g_ship.push_back(Block(4,3));
-	g_ship.push_back(Block(5,3));
-	g_ship.push_back(Block(6,3));
-	g_ship.push_back(Block(7,3));
-	g_ship.push_back(Block(8,3));
+	hero.blocks.push_back(Block(1,2));
+	hero.blocks.push_back(Block(2,2));
+	hero.blocks.push_back(Block(3,2));
+	hero.blocks.push_back(Block(4,2));
+	hero.blocks.push_back(Block(5,2));
+	hero.blocks.push_back(Block(6,2));
+	hero.blocks.push_back(Block(7,2));
+	hero.blocks.push_back(Block(8,2));
 
-	g_ship.push_back(Block(4,4));
-	g_ship.push_back(Block(5,4));
+	hero.blocks.push_back(Block(0,3));
+	hero.blocks.push_back(Block(1,3));
+	hero.blocks.push_back(Block(2,3));
+	hero.blocks.push_back(Block(3,3));
+	hero.blocks.push_back(Block(4,3));
+	hero.blocks.push_back(Block(5,3));
+	hero.blocks.push_back(Block(6,3));
+	hero.blocks.push_back(Block(7,3));
+	hero.blocks.push_back(Block(8,3));
 
-	g_ship.push_back(Block(4,5));
+	hero.blocks.push_back(Block(4,4));
+	hero.blocks.push_back(Block(5,4));
 
-	g_ship.push_back(Block(4,6));
-	g_ship.push_back(Block(5,6));
+	hero.blocks.push_back(Block(4,5));
 
-	g_ship.push_back(Block(0,7));
-	g_ship.push_back(Block(1,7));
-	g_ship.push_back(Block(2,7));
-	g_ship.push_back(Block(3,7));
-	g_ship.push_back(Block(4,7));
-	g_ship.push_back(Block(5,7));
-	g_ship.push_back(Block(6,7));
-	g_ship.push_back(Block(7,7));
-	g_ship.push_back(Block(8,7));
+	hero.blocks.push_back(Block(4,6));
+	hero.blocks.push_back(Block(5,6));
 
-	g_ship.push_back(Block(1,8));
-	g_ship.push_back(Block(2,8));
-	g_ship.push_back(Block(3,8));
-	g_ship.push_back(Block(4,8));
-	g_ship.push_back(Block(5,8));
-	g_ship.push_back(Block(6,8));
-	g_ship.push_back(Block(7,8));
-	g_ship.push_back(Block(8,8));
+	hero.blocks.push_back(Block(0,7));
+	hero.blocks.push_back(Block(1,7));
+	hero.blocks.push_back(Block(2,7));
+	hero.blocks.push_back(Block(3,7));
+	hero.blocks.push_back(Block(4,7));
+	hero.blocks.push_back(Block(5,7));
+	hero.blocks.push_back(Block(6,7));
+	hero.blocks.push_back(Block(7,7));
+	hero.blocks.push_back(Block(8,7));
 
-	g_ship.push_back(Block(1,9));
-	g_ship.push_back(Block(2,9));
-	g_ship.push_back(Block(3,9));
-	g_ship.push_back(Block(4,9));
-	g_ship.push_back(Block(5,9));
-	g_ship.push_back(Block(6,9));
-	g_ship.push_back(Block(7,9));
+	hero.blocks.push_back(Block(1,8));
+	hero.blocks.push_back(Block(2,8));
+	hero.blocks.push_back(Block(3,8));
+	hero.blocks.push_back(Block(4,8));
+	hero.blocks.push_back(Block(5,8));
+	hero.blocks.push_back(Block(6,8));
+	hero.blocks.push_back(Block(7,8));
+	hero.blocks.push_back(Block(8,8));
 
-	g_ship.push_back(Block(3,10));
-	g_ship.push_back(Block(4,10));
-	g_ship.push_back(Block(5,10));
-	g_ship.push_back(Block(6,10));
+	hero.blocks.push_back(Block(1,9));
+	hero.blocks.push_back(Block(2,9));
+	hero.blocks.push_back(Block(3,9));
+	hero.blocks.push_back(Block(4,9));
+	hero.blocks.push_back(Block(5,9));
+	hero.blocks.push_back(Block(6,9));
+	hero.blocks.push_back(Block(7,9));
+
+	hero.blocks.push_back(Block(3,10));
+	hero.blocks.push_back(Block(4,10));
+	hero.blocks.push_back(Block(5,10));
+	hero.blocks.push_back(Block(6,10));
+*/
+	hero.blocks.push_back(Block(1,0, 2));
+	hero.blocks.push_back(Block(2,0, 1));
+	hero.blocks.push_back(Block(0,1));
+	hero.blocks.push_back(Block(1,1));
+	hero.blocks.push_back(Block(2,1));
+	hero.blocks.push_back(Block(1,2, 2));
+	hero.blocks.push_back(Block(2,2, 1));
+
+	g_heros.push_back(hero);
+
+
+	Enemy enemy;
+	enemy.owner = 1;
+	enemy.vx = -0.001f;
+	enemy.pos = Point(900,100);
+	enemy.posF = PointF(900,100);
+	enemy.blocks.push_back(Block(1,0, 1));
+	enemy.blocks.push_back(Block(2,0, 3));
+	enemy.blocks.push_back(Block(0,1));
+	enemy.blocks.push_back(Block(1,1));
+	enemy.blocks.push_back(Block(2,1));
+	enemy.blocks.push_back(Block(1,2, 1));
+	enemy.blocks.push_back(Block(2,2, 3));
+
+	g_enemys.push_back( enemy );
 
 
 
-	g_enemy.push_back(Block(1,0, 1));
-	g_enemy.push_back(Block(2,0, 3));
-	g_enemy.push_back(Block(0,1));
-	g_enemy.push_back(Block(1,1));
-	g_enemy.push_back(Block(2,1));
-	g_enemy.push_back(Block(1,2, 1));
-	g_enemy.push_back(Block(2,2, 3));
+
+	for (int i=0; i < g_explosions.size(); ++i)
+	{
+		if (i < (g_explosions.size()/2))
+		{
+			g_explosions[ i].owner = 0;
+		}
+		else
+		{
+			g_explosions[ i].owner = 1;
+		}
+	}
+
 
 }
 
@@ -540,6 +628,7 @@ void ReleaseGdiPlus()
 	delete g_graphics;
 	delete g_bmp;
 	delete g_enemyflameImage;
+	delete g_explosionImage;
 	delete g_flameImage;
 	// Shutdown Gdiplus 
 	Gdiplus::GdiplusShutdown(g_gdiplusToken); 
@@ -559,8 +648,16 @@ void DrawString( Graphics *graphics, int x, int y, const wstring &str)
 
 void MainLoop(int elapseT)
 {
+/*
+	stringstream ss;
+	ss << elapseT << endl;
+	string str = ss.str();
+	OutputDebugStringA( str.c_str() );
+/**/
+
 	g_flameSrc = GetAnimationRect(elapseT);
 
+	// 우주먼지 애니메이션
 	for (int i=0; i < g_dust.size(); ++i)
 	{
 		g_dust[ i].X -= (elapseT * 0.1f);
@@ -570,51 +667,56 @@ void MainLoop(int elapseT)
 			g_dust[ i].Y = (rand() % 640);
 		}
 	}
-	
 
-	g_enemyPosF.X -= (elapseT * 0.001f);
-	g_enemyPos = Point((int)g_enemyPosF.X, (int)g_enemyPosF.Y);
-
-	for (int i=0; i < g_enemy.size(); ++i)
+	// 폭발 애니메이션
+	for (int i=0; i < g_explosions.size(); ++i)
 	{
-		if (g_enemy[ i].type == 1)
+		if (g_explosions[ i].use)
 		{
-			g_enemy[ i].t += elapseT;
-			if (g_enemy[ i].t > 600)
+			g_explosions[ i].t += elapseT;
+			g_explosions[ i].srcRect = GetAnimationRectExplosion(
+				g_explosions[ i].t, g_explosions[ i].idx);
+
+			if (g_explosions[ i].idx < 0)
 			{
-				g_enemy[ i].t = 0;
-				Point dst = GetBlockPos(g_enemy[ i], g_enemyPos);
-				Point target = GetMostNearBlockPos(dst, g_ship, g_shipPos);
-				g_enemy[ i].target = target;
-
-				Bullet bullet;
-				bullet.owner = 1;					 
-				bullet.x = dst.X;
-				bullet.y = dst.Y;
-				const int dx = target.X - dst.X;
-				const int dy = target.Y - dst.Y;
-				const int len = sqrt((double)(dx*dx + dy*dy));
-				float xx = (float)dx/(float)len;
-				float yy = (float)dy/(float)len;					
-
-				bullet.vx = xx * 0.1f;
-				bullet.vy = yy * 0.1f;
-				SetBullet(bullet);
+				g_explosions[ i].use = false;
 			}
 		}
 	}
 
+	
+
+//	g_enemyPosF.X -= (elapseT * 0.001f);
+//	g_enemyPos = Point((int)g_enemyPosF.X, (int)g_enemyPosF.Y);
+	MoveEnemy(g_enemys, elapseT);
+	MoveEnemy(g_heros, elapseT);
+
+	for (int i=0; i < g_enemys.size(); ++i)
+	{
+		EnemyShoot(g_heros, g_enemys[ i], elapseT);
+	}
+
+	for (int i=0; i < g_heros.size(); ++i)
+	{
+		EnemyShoot(g_enemys, g_heros[ i], elapseT);
+	}
+
+/*
 	// 주인공편 총알 발사.
 	for (int i=0; i < g_ship.size(); ++i)
 	{
 		if (g_ship[ i].type == 1)
 		{
 			g_ship[ i].t += elapseT;
-			if (g_ship[ i].t > 600)
+			if (g_ship[ i].t > 2000)
 			{
 				g_ship[ i].t = 0;
 				Point dst = GetBlockPos(g_ship[ i], g_shipPos);
-				Point target = GetMostNearBlockPos(dst, g_enemy, g_enemyPos);
+				Point target = GetMostNearEnemyBlockPos(dst, g_enemys);
+				if (target.X == -1 &&
+					target.Y == -1)
+					continue;
+
 				g_ship[ i].target = target;
 
 				Bullet bullet;
@@ -627,13 +729,13 @@ void MainLoop(int elapseT)
 				float xx = (float)dx/(float)len;
 				float yy = (float)dy/(float)len;					
 
-				bullet.vx = xx * 0.1f;
-				bullet.vy = yy * 0.1f;
+				bullet.vx = xx * 0.3f;
+				bullet.vy = yy * 0.3f;
 				SetBullet(bullet);
 			}
 		}
 	}
-
+/**/
 
 
 	// 총알 이동.
@@ -697,8 +799,110 @@ void MainLoop(int elapseT)
 	// 충돌테스트
 	for (int i=0; i < g_bullets.size(); ++i)
 	{
+		if (g_bullets[ i].owner == 0)
+		{
+			if (CheckEnemyCollision(g_enemys, g_bullets[ i].x, g_bullets[ i].y))
+			{
+				Point pos(g_bullets[ i].x, g_bullets[ i].y);
+				SetExplosion(0, pos.X-48, pos.Y-48);
+				g_bullets[ i].use = false;
+			}
+		}
 
+
+		// 주인공 비행기와 충돌했는지 확인.
+		if (g_bullets[ i].owner == 1)
+		{
+			if (CheckEnemyCollision(g_heros, g_bullets[ i].x, g_bullets[ i].y))
+			{
+				Point pos(g_bullets[ i].x, g_bullets[ i].y);
+				SetExplosion(1, pos.X-48, pos.Y-48);
+				g_bullets[ i].use = false;
+			}
+
+/*
+			// 적 비행기와 충돌했는지 확인.
+			for (int k=0; k < g_ship.size(); ++k)
+			{
+				const Point pos = GetBlockPos(g_ship[ k], g_shipPos);
+				const Point bulletPos = Point(g_bullets[ i].x, g_bullets[ i].y);
+				const Point diff = pos - bulletPos;
+				const int length = sqrt((double)(diff.X*diff.X + diff.Y*diff.Y));
+				if (length < 25)
+				{
+					g_bullets[ i].use = false;
+					g_ship[ k].life -= 1;
+					if (g_ship[ k].life < 0)
+					{
+						g_ship.erase( g_ship.begin() + k );
+					}
+
+					SetExplosion(1, pos.X-48, pos.Y-48);
+				}
+			}
+/**/
+		}
 	}
+
+
+	// 적 비행기 등장.
+	static int enemyApearT = 0;
+	enemyApearT += elapseT;
+	if (enemyApearT > 10000)
+	{
+		enemyApearT = 0;
+
+		Enemy enemy;
+		enemy.owner = 1;
+		enemy.vx = -0.001f;
+
+		if (rand()%3 == 0)
+		{
+			spawnBossEnemy(enemy);
+		}
+		else
+		{
+			const int yOffset = (rand() % 500);
+			enemy.pos = Point(900,100+yOffset);
+			enemy.posF = PointF(900,100+yOffset);
+			enemy.blocks.push_back(Block(1,0, 1));
+			enemy.blocks.push_back(Block(2,0, 3));
+			enemy.blocks.push_back(Block(0,1));
+			enemy.blocks.push_back(Block(1,1));
+			enemy.blocks.push_back(Block(2,1));
+			enemy.blocks.push_back(Block(1,2, 1));
+			enemy.blocks.push_back(Block(2,2, 3));
+		}
+
+		g_enemys.push_back( enemy );
+	}
+
+
+	// 주인공 비행기 등장.
+	static int heroApearT = 0;
+	heroApearT += elapseT;
+	if (heroApearT > 10000)
+	{
+		heroApearT = 0;
+
+		Enemy hero;
+		hero.owner = 0;
+		hero.vx = 0.001f + 0.001f*(float)(rand()%5);
+
+		const int yOffset = (rand() % 500);
+		hero.pos = Point(50,100+yOffset);
+		hero.posF = PointF(50,100+yOffset);
+		hero.blocks.push_back(Block(1,0, 2));
+		hero.blocks.push_back(Block(2,0, 1));
+		hero.blocks.push_back(Block(0,1));
+		hero.blocks.push_back(Block(1,1));
+		hero.blocks.push_back(Block(2,1));
+		hero.blocks.push_back(Block(1,2, 2));
+		hero.blocks.push_back(Block(2,2, 1));
+
+		g_heros.push_back( hero );
+	}
+
 
 
 	++frame;
@@ -921,6 +1125,23 @@ Rect GetAnimationRect(int elapseT)
 }
 
 
+Rect GetAnimationRectExplosion(int &t, int &idx)
+{
+	if (t > 15)
+	{
+		++idx;
+		if (idx >= 20)
+			idx = -1;
+		t = 0;
+	}
+
+	const int width = 96;
+	const int height = 96;
+
+	return Rect((idx%5)*width, (idx/5)*height, width, height);
+}
+
+
 Point GetBlockPos(Block block, Point shipPos)
 {
 	const int width = (int)(cos(pi/6.f) * cellSize);
@@ -937,9 +1158,27 @@ Point GetBlockPos(Block block, Point shipPos)
 }
 
 
+Point GetMostNearEnemyBlockPos(Point originPos, std::vector<Enemy> &flights)
+{
+	if (flights.empty())
+		return Point(-1,-1);
+
+	for (int i=0; i < flights.size(); ++i)
+	{
+		Point target = GetMostNearBlockPos(originPos, flights[ i].blocks, flights[ i].pos);
+		if ((target.X == -1) && 
+			(target.Y == -1))
+			continue;
+		return target;
+	}
+
+	return Point(-1,-1);
+}
+
+
 Point GetMostNearBlockPos(Point originPos, std::vector<Block> &ship, Point shipPos)
 {
-	Point nearPos;
+	Point nearPos(-1,-1);
 	int nearLen = 10000000;
 	for (int i=0; i < ship.size(); ++i)
 	{
@@ -968,4 +1207,128 @@ void SetBullet( Bullet bullet )
 			break;
 		}
 	}
+}
+
+
+void SetExplosion( int owner, int x, int y )
+{
+	for (int i=0; i < g_explosions.size(); ++i)
+	{
+		if ((g_explosions[ i].owner == owner) && !g_explosions[ i].use)
+		{
+			g_explosions[ i].use = true;
+			g_explosions[ i].t = 0;
+			g_explosions[ i].idx = 0;
+			g_explosions[ i].x = x + rand()%30 - 15;
+			g_explosions[ i].y = y + rand()%30 - 15;
+			break;
+		}
+	}
+}
+
+
+void DrawEnemy(Graphics *graphic, std::vector<Enemy> &flights)
+{
+	for (int i=0; i < flights.size(); ++i)
+	{
+		DrawShip(graphic, flights[ i].blocks, flights[ i].pos, 
+			g_greyBrush, g_blackPen );
+	}
+}
+
+
+void MoveEnemy(std::vector<Enemy> &flights, int elapseT)
+{
+	for (int i=0; i < flights.size(); ++i)
+	{
+		flights[ i].posF.X += (elapseT * flights[ i].vx);
+		flights[ i].pos = 
+			Point((int)flights[ i].posF.X, (int)flights[ i].posF.Y);
+	}
+}
+
+
+void EnemyShoot(std::vector<Enemy> &targets, Enemy &enemy, const int elapseT)
+{
+	for (int k=0; k < targets.size(); ++k)
+	{
+
+		for (int i=0; i < enemy.blocks.size(); ++i)
+		{
+			if (enemy.blocks[ i].type == 1)
+			{
+				enemy.blocks[ i].t += elapseT;
+				if (enemy.blocks[ i].t > 2000)
+				{
+					enemy.blocks[ i].t = 0;
+					Point dst = GetBlockPos(enemy.blocks[ i], enemy.pos);
+					Point target = GetMostNearBlockPos(dst, targets[ k].blocks, targets[ k].pos);
+					if ((target.X == -1) && 
+						(target.Y == -1))
+						continue;
+
+					enemy.blocks[ i].target = target;
+
+					Bullet bullet;
+					bullet.owner = enemy.owner;
+					bullet.x = dst.X;
+					bullet.y = dst.Y;
+					const int dx = target.X - dst.X;
+					const int dy = target.Y - dst.Y;
+					const int len = sqrt((double)(dx*dx + dy*dy));
+					float xx = (float)dx/(float)len;
+					float yy = (float)dy/(float)len;					
+
+					bullet.vx = xx * 0.3f;
+					bullet.vy = yy * 0.3f;
+					SetBullet(bullet);
+				}
+			}
+		}
+
+	}
+}
+
+bool CheckEnemyCollision( std::vector<Enemy> &ships, int bulletX, int bulletY )
+{
+	for (int i=0; i < ships.size(); ++i)
+	{
+		// 적 비행기와 충돌했는지 확인.
+		for (int k=0; k < ships[ i].blocks.size(); ++k)
+		{
+			const Point pos = GetBlockPos(ships[ i].blocks[ k], ships[ i].pos);
+			const Point bulletPos = Point(bulletX, bulletY);
+			const Point diff = pos - bulletPos;
+			const int length = sqrt((double)(diff.X*diff.X + diff.Y*diff.Y));
+			if (length < 30)
+			{
+				ships[ i].blocks[ k].life -= 1;
+				if (ships[ i].blocks[ k].life < 0)
+				{
+					ships[ i].blocks.erase( ships[ i].blocks.begin() + k );
+				}
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+void spawnBossEnemy(Enemy &enemy)
+{
+	const int yOffset = (rand() % 500);
+	enemy.pos = Point(900,100+yOffset);
+	enemy.posF = PointF(900,100+yOffset);
+	enemy.blocks.push_back(Block(2,0, 1));
+	enemy.blocks.push_back(Block(3,0, 3));
+
+	enemy.blocks.push_back(Block(0,1, 1));
+	enemy.blocks.push_back(Block(1,1, 1));
+	enemy.blocks.push_back(Block(2,1, 1));
+	enemy.blocks.push_back(Block(3,1, 3));
+
+	enemy.blocks.push_back(Block(2,2, 1));
+	enemy.blocks.push_back(Block(3,2, 3));
 }
