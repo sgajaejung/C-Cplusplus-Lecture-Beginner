@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include <sstream>
 #include <objidl.h>
 #include <gdiplus.h> 
 #pragma comment( lib, "gdiplus.lib" ) 
@@ -133,9 +134,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 				wndSize.X, wndSize.Y, wndSize.Width, wndSize.Height,
 				UnitPixel);
 
-			Rect r(100, 100, 200, 200);
-			g_graphics->DrawRectangle(g_pen, r);
-			DrawString( r.X, r.Y, L"Hello" );
+//			Rect r(100, 100, 200, 200);
+//			g_graphics->DrawRectangle(g_pen, r);
+//			DrawString( r.X, r.Y, L"Hello" );
 
 			g_graphics->DrawRectangle(g_pen, g_SelectR);
 			g_graphics->DrawRectangle(g_pen, g_MouseR);			
@@ -149,7 +150,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			Point pos(LOWORD(lParam), HIWORD(lParam));
 			g_MouseR = Rect(pos.X, pos.Y, 1, 1);
 			g_mouseDown = true;
-			::InvalidateRect(hWnd, NULL, FALSE);
+			::InvalidateRect(hWnd, NULL, TRUE);
 		}
 		break;
 
@@ -165,7 +166,13 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			g_mouseDown = false;
 			g_SelectR = FindRectRange(g_MouseR);
 			g_MouseR = Rect(0,0,0,0);
-			::InvalidateRect(hWnd, NULL, FALSE);
+
+			std::stringstream ss;
+			ss << "SelectR = " << g_SelectR.X << " " << g_SelectR.Y <<
+				" " << g_SelectR.Width << " " << g_SelectR.Height << endl;
+			OutputDebugStringA( ss.str().c_str() );
+
+			::InvalidateRect(hWnd, NULL, TRUE);
 		}
 		break;
 	case WM_MOUSEMOVE:
@@ -178,7 +185,16 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 					min(pos.Y, g_MouseR.Y),
 					abs(pos.X - g_MouseR.X),
 					abs(pos.Y - g_MouseR.Y));
-				::InvalidateRect(hWnd, NULL, FALSE);
+				::InvalidateRect(hWnd, NULL, TRUE);
+			}
+			else
+			{
+				//Point pos(LOWORD(lParam), HIWORD(lParam));
+				//Color color;
+				//g_image->GetPixel(pos.X, pos.Y, &color);
+				//std::stringstream ss;
+				//ss << color.GetValue() << endl;
+				//OutputDebugStringA( ss.str().c_str() );
 			}
 		}
 		break;
@@ -205,7 +221,7 @@ void InitGdiPlus(HWND hWnd)
 	g_blackBrush = new SolidBrush(0xFF000000);
 	g_font = new Font(L"Arial", 16);
 	//g_image = Image::FromFile(L"5114.png");
-	g_image = new Bitmap(L"5114.png");
+	g_image = new Bitmap(L"FF10-2.png");
 	g_tmpImage = new Bitmap(g_image->GetWidth(), g_image->GetHeight());
 }
 
@@ -246,7 +262,7 @@ Rect FindRectRange( Rect range )
 	else
 	{
 		Color bgColor;
-		g_image->GetPixel(0, 0, &bgColor);
+		Status status = g_image->GetPixel(0, 0, &bgColor);
 
 		Graphics graphic(g_tmpImage);
 		graphic.FillRectangle(g_brush, 
@@ -267,7 +283,8 @@ Rect FindRectRange( Rect range )
 				g_tmpImage->GetPixel(pos.X, pos.Y, &checkColor);
 
 				if ((color.GetValue() != bgColor.GetValue()) &&
-					(checkColor.GetValue() == 0xFFFFFFFF))
+					(checkColor.GetValue() == 0xFFFFFFFF) &&
+					(color.GetAlpha() != 0))
 				{
 					RECT r = FindRectRec(pos, bgColor, false);
 					RECT newR;
@@ -318,7 +335,8 @@ Rect TrimRect( Rect range )
 
 			Color color;
 			g_image->GetPixel(pos.X, pos.Y, &color);
-			if (color.GetValue() != bgColor.GetValue())
+			if ((color.GetValue() != bgColor.GetValue()) &&
+				(color.GetAlpha() != 0))
 			{
 				r.left = i;
 				checkLeft = true;
@@ -336,7 +354,8 @@ Rect TrimRect( Rect range )
 
 			Color color;
 			g_image->GetPixel(pos.X, pos.Y, &color);
-			if (color.GetValue() != bgColor.GetValue())
+			if ((color.GetValue() != bgColor.GetValue()) &&
+				(color.GetAlpha() != 0))
 			{
 				r.top = i;
 				checkTop = true;
@@ -354,7 +373,8 @@ Rect TrimRect( Rect range )
 
 			Color color;
 			g_image->GetPixel(pos.X, pos.Y, &color);
-			if (color.GetValue() != bgColor.GetValue())
+			if ((color.GetValue() != bgColor.GetValue()) &&
+				(color.GetAlpha() != 0))
 			{
 				r.right = i;
 				checkRight = true;
@@ -372,7 +392,8 @@ Rect TrimRect( Rect range )
 
 			Color color;
 			g_image->GetPixel(pos.X, pos.Y, &color);
-			if (color.GetValue() != bgColor.GetValue())
+			if ((color.GetValue() != bgColor.GetValue()) &&
+				(color.GetAlpha() != 0))
 			{
 				r.bottom = i;
 				checkBottom = true;
@@ -426,7 +447,8 @@ RECT FindRectRec( Point firstPos, Color bgColor, bool checkRange )
 
 		Color color;
 		g_image->GetPixel(pos.X, pos.Y, &color);
-		if (color.GetValue() == bgColor.GetValue())
+		if ((color.GetValue() == bgColor.GetValue()) ||
+			(color.GetAlpha() == 0))
 			continue;
 
 		q.push_back(Point(pos.X-1, pos.Y));
