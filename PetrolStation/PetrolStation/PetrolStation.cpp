@@ -2,6 +2,8 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include <sstream>
+#include "../math/math.h"
 #include <objidl.h>
 #include <gdiplus.h> 
 #pragma comment( lib, "gdiplus.lib" ) 
@@ -16,10 +18,28 @@ Graphics *g_graphics;
 Font *g_font;
 Pen *g_pen; // 펜 객체.
 Brush *g_blackBrush; // 브러쉬 객체.
+Brush *g_redBrush; // 브러쉬 객체.
 Brush *g_brush; // 브러쉬 객체.
-Image *g_image;
 Bitmap *g_bg;
+Image *g_image;
+Image *g_carImage;
+HWND g_hWnd = NULL;
 
+int g_incT = 0;
+int frameT = 0;
+int frame = 0;
+wstring frameStr;
+
+int g_pathIdx = 0;
+vector<Vector2> g_Path;
+struct sCar
+{
+	bool isStop;
+	int curPathIdx;
+	Vector2 pos;
+	float speed; // 초당 픽셀 이동속도.
+};
+sCar g_car;
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -27,7 +47,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage,
 	WPARAM wParam, LPARAM lParam );
 void InitGdiPlus(HWND hWnd);
 void ReleaseGdiPlus();
-void DrawString( int x, int y, const wstring &str);
+void DrawString( Graphics *graph, int x, int y, const wstring &str);
+void MainLoop(int elapseT);
+void MoveCar(int elapseT);
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
@@ -35,8 +57,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	LPSTR lpCmdLine, 
 	int nCmdShow)
 {
-	wchar_t className[32] = L"SimpleWindow";
-	wchar_t windowName[32] = L"SimpleWindow";
+	wchar_t className[32] = L"Petrol Station";
+	wchar_t windowName[32] = L"Petrol Station";
 
 	//윈도우 클레스 정보 생성
 	//내가 이러한 윈도를 만들겠다 라는 정보
@@ -71,6 +93,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		NULL					//추가 정보 NULL ( 신경끄자 )
 		);
 
+	g_hWnd = hWnd;
+
 	//윈도우를 정확한 작업영역 크기로 맞춘다
 	RECT rcClient = { 0, 0, 800, 600};
 	AdjustWindowRect( &rcClient, WS_OVERLAPPEDWINDOW, FALSE );	//rcClient 크기를 작업 영영으로 할 윈도우 크기를 rcClient 에 대입되어 나온다.
@@ -88,6 +112,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	MSG msg;
 	ZeroMemory( &msg, sizeof(MSG) );
 
+	int oldT = GetTickCount();
 	while (msg.message != WM_QUIT)
 	{
 		//PeekMessage 는 메시지 큐에 메시지가 없어도 프로그램이 멈추기 않고 진행이 된다.
@@ -97,6 +122,15 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 			TranslateMessage( &msg ); //눌린 키보드 의 문자를 번역하여 WM_CHAR 메시지를 발생시킨다.
 			DispatchMessage( &msg );  //받아온 메시지 정보로 윈도우 프로시져 함수를 실행시킨다.
 		}
+
+		const int curT = GetTickCount();
+		const int elapseT = curT - oldT;
+		if (elapseT > 15)
+		{
+			oldT = curT;
+			MainLoop(elapseT);
+		}
+
 	}
 
 	ReleaseGdiPlus();
@@ -117,28 +151,58 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	case WM_PAINT: // 화면이 갱신될 때 호출된다.
 		{
 			hdc = BeginPaint(hWnd, &ps);
-
 			Graphics *graph = Graphics::FromImage(g_bg);
-
-			Rect r(100, 100, 200, 200);
-			graph->DrawRectangle(g_pen, r);
-
-
-			DrawString( r.X, r.Y, L"Hello" );
-
 
 			RECT cr;
 			GetClientRect(hWnd, &cr);
 			Rect wndSize(cr.left, cr.top, cr.right, cr.bottom);
 			graph->DrawImage(g_image, wndSize);
 
+			for (int i=0; i < (int)g_Path.size(); ++i)
+			{
+				graph->FillEllipse(g_redBrush, (int)g_Path[ i].x, (int)g_Path[ i].y, 5, 5);
+			}
+
+
+			//Graphics *g = Graphics::FromImage(g_bg);
+			//graph->RotateTransform(45);
+			Vector2 p1(g_car.pos.x, g_car.pos.y);
+			Vector2 p2(g_car.pos.x+113, g_car.pos.y+58);
+			Vector2 p3(g_car.pos.x, g_car.pos.y+58);
+			Matrix44 m;
+			m.SetRotationY(0.7f);
+			m._33 = 1.f;
+			Vector2 pp1 = p1 * m;
+			Vector2 pp2 = p2 * m;
+			Vector2 pp3 = p3 * m;
+			Point pp[3];
+			pp[0] = Point((int)pp1.x, (int)pp1.y);
+			pp[1] = Point((int)pp2.x, (int)pp2.y);
+			pp[2] = Point((int)pp3.x, (int)pp2.y);
+
+			//graph->DrawImage(g_carImage, 
+			//	Rect((int)g_car.pos.x-(113/2), 
+			//	(int)g_car.pos.y-(58/2), 113, 58) );
+
+			graph->DrawImage(g_carImage,
+				pp,
+				3,
+				0,0,113,58, UnitPixel);
+
+
+			DrawString(graph, 50, 0, frameStr);
 			g_graphics->DrawImage(g_bg, wndSize);
 			EndPaint(hWnd, &ps);
 		}
 		break;
 
 	case WM_LBUTTONDOWN:
+		{
+			Vector2 pos(LOWORD(lParam), HIWORD(lParam));
+			g_Path.push_back(pos);
+		}
 		break;
+
 	case WM_LBUTTONUP:
 		break;
 	case WM_MOUSEMOVE:
@@ -164,9 +228,17 @@ void InitGdiPlus(HWND hWnd)
 	g_pen = new Pen(Color::Red);
 	g_brush = new SolidBrush(Color::White);
 	g_blackBrush = new SolidBrush(0xFF000000);
+	g_redBrush = new SolidBrush(0xFFFF0000);
 	g_font = new Font(L"Arial", 16);
-	g_image = Image::FromFile(L"bg.jpg");
 	g_bg = new Bitmap(800,600);
+	g_image = Image::FromFile(L"oilbank.png");
+	g_carImage = Image::FromFile(L"car.png");
+
+	g_car.isStop = false;
+	g_car.curPathIdx = -1;
+	g_car.pos = Vector2(0,0);
+	g_car.speed = 40;
+
 }
 
 
@@ -178,18 +250,78 @@ void ReleaseGdiPlus()
 	delete g_pen;
 	delete g_brush;
 	delete g_blackBrush;
+	delete g_redBrush;
 	delete g_graphics;
+	delete g_bg;
+	delete g_carImage;
 	// Shutdown Gdiplus 
 	Gdiplus::GdiplusShutdown(g_gdiplusToken); 
 }
 
 
-void DrawString( int x, int y, const wstring &str)
+void DrawString( Graphics *graph, int x, int y, const wstring &str)
 {
 	StringFormat format;
 	format.SetAlignment(StringAlignmentCenter);
 
-	g_graphics->DrawString( str.c_str(), -1, g_font,
+	graph->DrawString( str.c_str(), -1, g_font,
 		PointF((REAL)x, (REAL)y),
 		&format, g_blackBrush);
+}
+
+
+void MainLoop(int elapseT)
+{
+	MoveCar(elapseT);
+
+
+	++frame;
+	frameT += elapseT;
+	if (frameT > 1000)
+	{
+		std::wstringstream ss;
+		ss << frame;
+		frameStr = ss.str();
+		frame = 0;
+		frameT = 0;
+	}
+
+	::InvalidateRect(g_hWnd, NULL, FALSE);
+}
+
+
+void MoveCar(int elapseT)
+{
+	//if (g_car.isStop)
+	//	return;
+
+	if (2 > (int)g_Path.size())
+		return;
+	if ((g_car.curPathIdx+1) >= (int)g_Path.size())
+		return;
+
+	if (g_car.curPathIdx == -1)
+	{
+		g_car.pos = g_Path[ 0];
+		g_car.curPathIdx = 0;
+	}
+
+	Vector2 dir = g_Path[ g_car.curPathIdx+1] - g_car.pos;
+	const float len = dir.Length();
+
+	if (len < 1.9f)
+	{
+		// 다음 경로로 이동한다.
+		if ((g_car.curPathIdx + 1) < (int)g_Path.size())
+		{
+			++g_car.curPathIdx;
+		}
+		else
+		{
+			g_car.isStop = true;
+		}
+	}
+
+	dir.Normalize();
+	g_car.pos += dir * g_car.speed * (elapseT * 0.001f);
 }

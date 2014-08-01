@@ -16,9 +16,26 @@ Graphics *g_graphics;
 Font *g_font;
 Pen *g_pen; // 펜 객체.
 Brush *g_blackBrush; // 브러쉬 객체.
+Brush *g_whiteBrush; // 브러쉬 객체.
+Brush *g_redBrush; // 브러쉬 객체.
 Brush *g_brush; // 브러쉬 객체.
 Image *g_image;
+Bitmap *g_bg;
+HWND g_hWnd;
+HWND g_Edit;
+const UINT IDC_EDITBOX = 100;
 
+struct sWord
+{
+	bool isBreak;
+	Point pos;
+	PointF posF;
+	float velocity; // 떨어지는 속도.
+	wstring word;
+};
+std::vector<sWord> g_words;
+int g_blockCount = 9;
+wstring g_inputWord = L"입력창";
 
 
 // 콜백 프로시져 함수 프로토 타입
@@ -26,7 +43,11 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMessage,
 	WPARAM wParam, LPARAM lParam );
 void InitGdiPlus(HWND hWnd);
 void ReleaseGdiPlus();
-void DrawString( int x, int y, const wstring &str);
+void DrawString( Graphics *graph, int x, int y, const wstring &str);
+void DrawString2( Graphics *graph, int x, int y, const wstring &str);
+void MainLoop(int elapseT);
+wstring GetNewWord();
+void RenderBlock( Graphics *graph);
 
 
 int APIENTRY WinMain(HINSTANCE hInstance, 
@@ -69,6 +90,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 		hInstance,				//이 윈도우가 물릴 프로그램 인스턴스 핸들
 		NULL					//추가 정보 NULL ( 신경끄자 )
 		);
+	g_hWnd = hWnd;
 
 	//윈도우를 정확한 작업영역 크기로 맞춘다
 	RECT rcClient = { 0, 0, 800, 600};
@@ -87,6 +109,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	MSG msg;
 	ZeroMemory( &msg, sizeof(MSG) );
 
+	int oldT = GetTickCount();
 	while (msg.message != WM_QUIT)
 	{
 		//PeekMessage 는 메시지 큐에 메시지가 없어도 프로그램이 멈추기 않고 진행이 된다.
@@ -96,9 +119,58 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 			TranslateMessage( &msg ); //눌린 키보드 의 문자를 번역하여 WM_CHAR 메시지를 발생시킨다.
 			DispatchMessage( &msg );  //받아온 메시지 정보로 윈도우 프로시져 함수를 실행시킨다.
 		}
+
+		const int curT = GetTickCount();
+		const int elapseT = curT - oldT;
+		if (elapseT > 15)
+		{
+			oldT = curT;
+			MainLoop(elapseT);
+		}
+
 	}
 
 	ReleaseGdiPlus();
+	return 0;
+}
+
+WNDPROC oldEditProc;
+LRESULT CALLBACK subEditProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg)
+	{
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+		case VK_RETURN:
+			{
+				WCHAR text[128];
+				GetWindowText(wnd, text, 128);
+				SetWindowText(wnd, L"");
+
+				wstring str = text;
+				for (int i=0; i < (int)g_words.size(); ++i)
+				{
+					if ((!g_words[ i].isBreak) && (str == g_words[ i].word))
+					{
+						//g_words[ i].isBreak = true;
+						sWord w1;
+						w1.isBreak = false;
+						w1.posF = PointF((float)(rand()%800), 10.f);
+						w1.velocity = (rand() % 4) * 0.01f;
+						w1.word = GetNewWord();
+						g_words[ i] = w1;
+						break;
+					}
+				}
+
+			}
+			break;  //or return 0; if you don't want to pass it further to def proc
+			//If not your key, skip to default:
+		}
+	default:
+		return CallWindowProc(oldEditProc, wnd, msg, wParam, lParam);
+	}
 	return 0;
 }
 
@@ -117,20 +189,69 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 		{
 			hdc = BeginPaint(hWnd, &ps);
 
-			Rect r(100, 100, 200, 200);
-			g_graphics->DrawRectangle(g_pen, r);
-
-
-			DrawString( r.X, r.Y, L"Hello" );
-
+			Graphics *graph = Graphics::FromImage(g_bg);
 
 			RECT cr;
 			GetClientRect(hWnd, &cr);
 			Rect wndSize(cr.left, cr.top, cr.right, cr.bottom);
-			g_graphics->DrawImage(g_image, wndSize);
+			graph->DrawImage(g_image, wndSize);
 
+			for (int i=0; i < (int)g_words.size(); ++i)
+			{
+				if (!g_words[ i].isBreak)
+				{
+					DrawString( graph, (int)g_words[ i].posF.X, 
+						(int)g_words[ i].posF.Y,
+						g_words[ i].word.c_str());
+				}
+			}
 
+			RenderBlock(graph);
+
+			g_graphics->DrawImage(g_bg, wndSize);
 			EndPaint(hWnd, &ps);
+		}
+		break;
+
+	case WM_CREATE:
+		{
+			g_Edit = CreateWindowEx(WS_EX_CLIENTEDGE,
+				L"EDIT",
+				L"",
+				WS_CHILD|WS_VISIBLE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,
+				50,
+				100,
+				200,
+				100,
+				hWnd,
+				(HMENU)IDC_EDITBOX,
+				GetModuleHandle(NULL),
+				NULL);
+			 oldEditProc = (WNDPROC)SetWindowLongPtr(g_Edit, 
+				 GWLP_WNDPROC, (LONG_PTR)subEditProc);
+
+			SetFocus(g_Edit);
+		}
+		break;
+
+	case WM_COMMAND:
+		{
+			switch (LOWORD(wParam))
+			{
+			case IDC_EDITBOX:
+				{
+					WCHAR text[ 128];
+					GetWindowText(g_Edit, text, 128);
+					g_inputWord = text;
+				}
+				break;
+			}
+		}
+		break;
+
+	case WM_SETTEXT:
+		{
+			int a = 0;
 		}
 		break;
 
@@ -161,8 +282,23 @@ void InitGdiPlus(HWND hWnd)
 	g_pen = new Pen(Color::Red);
 	g_brush = new SolidBrush(Color::White);
 	g_blackBrush = new SolidBrush(0xFF000000);
+	g_whiteBrush = new SolidBrush(0xFFFFFFFF);
+	g_redBrush = new SolidBrush(0xFFFF0000);
 	g_font = new Font(L"Arial", 16);
 	g_image = Image::FromFile(L"bg.jpg");
+	g_bg = new Bitmap(800,600);
+
+
+	for (int i=0; i < 4; ++i)
+	{
+		sWord w1;
+		w1.isBreak = false;
+		w1.posF = PointF((float)(rand()%800), 10.f);
+		w1.velocity = (rand() % 4) * 0.01f;
+		w1.word = GetNewWord();
+		g_words.push_back(w1);
+	}
+
 }
 
 
@@ -174,18 +310,106 @@ void ReleaseGdiPlus()
 	delete g_pen;
 	delete g_brush;
 	delete g_blackBrush;
+	delete g_whiteBrush;
+	delete g_redBrush;
+	delete g_bg;
 	delete g_graphics;
 	// Shutdown Gdiplus 
 	Gdiplus::GdiplusShutdown(g_gdiplusToken); 
 }
 
 
-void DrawString( int x, int y, const wstring &str)
+void DrawString( Graphics *graph, int x, int y, const wstring &str)
 {
 	StringFormat format;
 	format.SetAlignment(StringAlignmentCenter);
 
-	g_graphics->DrawString( str.c_str(), -1, g_font,
+	graph->DrawString( str.c_str(), -1, g_font,
+		PointF((REAL)x, (REAL)y),
+		&format, g_whiteBrush);
+}
+
+void DrawString2( Graphics *graph, int x, int y, const wstring &str)
+{
+	StringFormat format;
+	format.SetAlignment(StringAlignmentNear);
+
+	graph->DrawString( str.c_str(), -1, g_font,
 		PointF((REAL)x, (REAL)y),
 		&format, g_blackBrush);
 }
+
+void MainLoop(int elapseT)
+{
+	for (int i=0; i < (int)g_words.size(); ++i)
+	{
+		g_words[ i].posF.Y += (elapseT * g_words[ i].velocity);
+		if (g_words[ i].posF.Y > 600)
+		{
+			g_words[ i].posF.Y = 0;
+			g_words[ i].posF.X = (float)(rand() % 800);
+			g_words[ i].word = GetNewWord();
+
+			if (!g_words[ i].isBreak)
+				--g_blockCount;
+
+			if (g_blockCount<0)
+				g_blockCount = 0;
+		}
+	}
+
+	::InvalidateRect(g_hWnd, NULL, FALSE);
+}
+
+
+wstring GetNewWord()
+{
+	wstring words[] = 
+	{
+		L"테스트1",
+		L"테스트2",
+		L"테스트3",
+		L"테스트4",
+	};
+
+	wstring ret = words[ rand()%4];	
+	return ret;
+}
+
+
+void RenderBlock( Graphics *graph)
+{
+	int blockW = 60;
+	int blockH = 20;
+	Point offset(300,530);
+
+	graph->FillRectangle(g_whiteBrush, 
+		offset.X, offset.Y-20,
+		blockW*3, blockH);
+	DrawString2(graph, offset.X, offset.Y-20, g_inputWord);
+
+	for (int i=0; i < g_blockCount; ++i)
+	{
+		int x = blockW * (i % 3);
+		int y = blockH * (i / 3);
+		graph->FillRectangle(g_whiteBrush, 
+			x + offset.X, y + offset.Y,
+			blockW, blockH);
+		graph->DrawRectangle(g_pen, 
+			x + offset.X, y + offset.Y,
+			blockW, blockH);
+	}
+
+	for (int i=g_blockCount; i < 9; ++i)
+	{
+		int x = blockW * (i % 3);
+		int y = blockH * (i / 3);
+		graph->FillRectangle(g_redBrush, 
+			x + offset.X, y + offset.Y,
+			blockW, blockH);
+		graph->DrawRectangle(g_pen, 
+			x + offset.X, y + offset.Y,
+			blockW, blockH);
+	}
+}
+
