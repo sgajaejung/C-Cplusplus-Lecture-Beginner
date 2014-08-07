@@ -310,23 +310,23 @@ void InitGdiPlus(HWND hWnd)
 	g_blackBrush = new SolidBrush(0xFF000000);
 
 	g_brushes.push_back( new SolidBrush(Color::Yellow) );
-	g_brushes.push_back( new SolidBrush(Color::Tomato) );
-	g_brushes.push_back( new SolidBrush(Color::Yellow) );
-	g_brushes.push_back( new SolidBrush(Color::Sienna) );
-	g_brushes.push_back( new SolidBrush(Color::NavajoWhite) );
-	g_brushes.push_back( new SolidBrush(Color::MediumTurquoise) );
-	g_brushes.push_back( new SolidBrush(Color::MediumAquamarine) );
-	g_brushes.push_back( new SolidBrush(Color::Lime) );
-	g_brushes.push_back( new SolidBrush(Color::LightGoldenrodYellow) );
-	g_brushes.push_back( new SolidBrush(Color::DarkBlue) );
-	g_brushes.push_back( new SolidBrush(Color::DarkCyan             ) );
-	g_brushes.push_back( new SolidBrush(Color::Beige             ) );
-	g_brushes.push_back( new SolidBrush(Color::AliceBlue             ) );
-	g_brushes.push_back( new SolidBrush(Color::AntiqueWhite             ) );
-	g_brushes.push_back( new SolidBrush(Color::BlueViolet             ) );
-	g_brushes.push_back( new SolidBrush(Color::Brown             ) );
-	g_brushes.push_back( new SolidBrush(Color::DarkOliveGreen             ) );
-	g_brushes.push_back( new SolidBrush(Color::DeepPink             ) );
+	//g_brushes.push_back( new SolidBrush(Color::Tomato) );
+	//g_brushes.push_back( new SolidBrush(Color::Yellow) );
+	//g_brushes.push_back( new SolidBrush(Color::Sienna) );
+	//g_brushes.push_back( new SolidBrush(Color::NavajoWhite) );
+	//g_brushes.push_back( new SolidBrush(Color::MediumTurquoise) );
+	//g_brushes.push_back( new SolidBrush(Color::MediumAquamarine) );
+	//g_brushes.push_back( new SolidBrush(Color::Lime) );
+	//g_brushes.push_back( new SolidBrush(Color::LightGoldenrodYellow) );
+	//g_brushes.push_back( new SolidBrush(Color::DarkBlue) );
+	//g_brushes.push_back( new SolidBrush(Color::DarkCyan             ) );
+	//g_brushes.push_back( new SolidBrush(Color::Beige             ) );
+	//g_brushes.push_back( new SolidBrush(Color::AliceBlue             ) );
+	//g_brushes.push_back( new SolidBrush(Color::AntiqueWhite             ) );
+	//g_brushes.push_back( new SolidBrush(Color::BlueViolet             ) );
+	//g_brushes.push_back( new SolidBrush(Color::Brown             ) );
+	//g_brushes.push_back( new SolidBrush(Color::DarkOliveGreen             ) );
+	//g_brushes.push_back( new SolidBrush(Color::DeepPink             ) );
 	
 
 

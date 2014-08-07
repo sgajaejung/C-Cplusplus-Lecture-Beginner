@@ -31,12 +31,12 @@ int frame = 0;
 wstring frameStr;
 
 int g_pathIdx = 0;
-vector<Vector2> g_Path;
+vector<Vector3> g_Path;
 struct sCar
 {
 	bool isStop;
 	int curPathIdx;
-	Vector2 pos;
+	Vector3 pos;
 	float speed; // 초당 픽셀 이동속도.
 };
 sCar g_car;
@@ -160,25 +160,37 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 
 			for (int i=0; i < (int)g_Path.size(); ++i)
 			{
-				graph->FillEllipse(g_redBrush, (int)g_Path[ i].x, (int)g_Path[ i].y, 5, 5);
+				graph->FillEllipse(g_redBrush, (int)g_Path[ i].x, (int)g_Path[ i].z, 5, 5);
 			}
 
+			const int W = 113;
+			const int H = 58;
+			Vector3 p1(-W/2, 0, -H/2);
+			Vector3 p2(W/2, 0, -H/2);
+			Vector3 p3(-W/2, 0, H/2);
 
-			//Graphics *g = Graphics::FromImage(g_bg);
-			//graph->RotateTransform(45);
-			Vector2 p1(g_car.pos.x, g_car.pos.y);
-			Vector2 p2(g_car.pos.x+113, g_car.pos.y+58);
-			Vector2 p3(g_car.pos.x, g_car.pos.y+58);
 			Matrix44 m;
-			m.SetRotationY(0.7f);
-			m._33 = 1.f;
-			Vector2 pp1 = p1 * m;
-			Vector2 pp2 = p2 * m;
-			Vector2 pp3 = p3 * m;
+			if ((g_car.curPathIdx >= 0) && 
+				(g_car.curPathIdx+1 < (int)g_Path.size()))
+			{
+				Vector3 dir = g_Path[ g_car.curPathIdx+1] 
+				- g_car.pos;
+				dir.Normalize();
+
+				Quaternion q(Vector3(1,0,0), 
+					Vector3(dir.x, 0, -dir.z));
+				m = q.GetMatrix();
+			}
+
+			Vector3 pp1 = (p1 * m) + g_car.pos;
+			Vector3 pp2 = (p2 * m) + g_car.pos;
+			Vector3 pp3 = (p3 * m) + g_car.pos;
+
+
 			Point pp[3];
-			pp[0] = Point((int)pp1.x, (int)pp1.y);
-			pp[1] = Point((int)pp2.x, (int)pp2.y);
-			pp[2] = Point((int)pp3.x, (int)pp2.y);
+			pp[0] = Point((int)pp1.x, (int)pp1.z);
+			pp[1] = Point((int)pp2.x, (int)pp2.z);
+			pp[2] = Point((int)pp3.x, (int)pp3.z);
 
 			//graph->DrawImage(g_carImage, 
 			//	Rect((int)g_car.pos.x-(113/2), 
@@ -187,8 +199,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			graph->DrawImage(g_carImage,
 				pp,
 				3,
-				0,0,113,58, UnitPixel);
-
+				0,0,W,H, UnitPixel);
 
 			DrawString(graph, 50, 0, frameStr);
 			g_graphics->DrawImage(g_bg, wndSize);
@@ -198,7 +209,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 
 	case WM_LBUTTONDOWN:
 		{
-			Vector2 pos(LOWORD(lParam), HIWORD(lParam));
+			Vector3 pos(LOWORD(lParam), 0, HIWORD(lParam));
 			g_Path.push_back(pos);
 		}
 		break;
@@ -236,7 +247,7 @@ void InitGdiPlus(HWND hWnd)
 
 	g_car.isStop = false;
 	g_car.curPathIdx = -1;
-	g_car.pos = Vector2(0,0);
+	g_car.pos = Vector3(0,0,0);
 	g_car.speed = 40;
 
 }
@@ -306,7 +317,7 @@ void MoveCar(int elapseT)
 		g_car.curPathIdx = 0;
 	}
 
-	Vector2 dir = g_Path[ g_car.curPathIdx+1] - g_car.pos;
+	Vector3 dir = g_Path[ g_car.curPathIdx+1] - g_car.pos;
 	const float len = dir.Length();
 
 	if (len < 1.9f)
