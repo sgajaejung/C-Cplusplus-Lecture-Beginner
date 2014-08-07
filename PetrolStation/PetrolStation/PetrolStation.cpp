@@ -19,6 +19,7 @@ Font *g_font;
 Pen *g_pen; // 펜 객체.
 Brush *g_blackBrush; // 브러쉬 객체.
 Brush *g_redBrush; // 브러쉬 객체.
+Brush *g_blueBrush; // 브러쉬 객체.
 Brush *g_brush; // 브러쉬 객체.
 Bitmap *g_bg;
 Image *g_image;
@@ -30,11 +31,17 @@ int frameT = 0;
 int frame = 0;
 wstring frameStr;
 
-int g_pathIdx = 0;
-vector<Vector3> g_Path;
+struct sPath
+{
+	int type; // 0:move, 1:stop
+	Vector3 pos;
+};
+
+vector<sPath> g_Path;
 struct sCar
 {
 	bool isStop;
+	int waitTime;
 	int curPathIdx;
 	Vector3 pos;
 	float speed; // 초당 픽셀 이동속도.
@@ -160,7 +167,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 
 			for (int i=0; i < (int)g_Path.size(); ++i)
 			{
-				graph->FillEllipse(g_redBrush, (int)g_Path[ i].x, (int)g_Path[ i].z, 5, 5);
+				graph->FillEllipse((g_Path[ i].type==0)? g_redBrush : g_blueBrush, 
+					(int)g_Path[ i].pos.x, (int)g_Path[ i].pos.z, 5, 5);
 			}
 
 			const int W = 113;
@@ -173,7 +181,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			if ((g_car.curPathIdx >= 0) && 
 				(g_car.curPathIdx+1 < (int)g_Path.size()))
 			{
-				Vector3 dir = g_Path[ g_car.curPathIdx+1] 
+				Vector3 dir = g_Path[ g_car.curPathIdx+1].pos
 				- g_car.pos;
 				dir.Normalize();
 
@@ -192,10 +200,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 			pp[1] = Point((int)pp2.x, (int)pp2.z);
 			pp[2] = Point((int)pp3.x, (int)pp3.z);
 
-			//graph->DrawImage(g_carImage, 
-			//	Rect((int)g_car.pos.x-(113/2), 
-			//	(int)g_car.pos.y-(58/2), 113, 58) );
-
 			graph->DrawImage(g_carImage,
 				pp,
 				3,
@@ -210,7 +214,20 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 	case WM_LBUTTONDOWN:
 		{
 			Vector3 pos(LOWORD(lParam), 0, HIWORD(lParam));
-			g_Path.push_back(pos);
+			sPath path;
+			path.pos = pos;
+			path.type = 0;
+			g_Path.push_back(path);
+		}
+		break;
+
+	case WM_RBUTTONDOWN:
+		{
+			Vector3 pos(LOWORD(lParam), 0, HIWORD(lParam));
+			sPath path;
+			path.pos = pos;
+			path.type = 1;
+			g_Path.push_back(path);
 		}
 		break;
 
@@ -240,12 +257,14 @@ void InitGdiPlus(HWND hWnd)
 	g_brush = new SolidBrush(Color::White);
 	g_blackBrush = new SolidBrush(0xFF000000);
 	g_redBrush = new SolidBrush(0xFFFF0000);
+	g_blueBrush = new SolidBrush(0xFF0000FF);
 	g_font = new Font(L"Arial", 16);
 	g_bg = new Bitmap(800,600);
 	g_image = Image::FromFile(L"oilbank.png");
 	g_carImage = Image::FromFile(L"car.png");
 
 	g_car.isStop = false;
+	g_car.waitTime = 0;
 	g_car.curPathIdx = -1;
 	g_car.pos = Vector3(0,0,0);
 	g_car.speed = 40;
@@ -262,6 +281,7 @@ void ReleaseGdiPlus()
 	delete g_brush;
 	delete g_blackBrush;
 	delete g_redBrush;
+	delete g_blueBrush;
 	delete g_graphics;
 	delete g_bg;
 	delete g_carImage;
@@ -313,11 +333,11 @@ void MoveCar(int elapseT)
 
 	if (g_car.curPathIdx == -1)
 	{
-		g_car.pos = g_Path[ 0];
+		g_car.pos = g_Path[ 0].pos;
 		g_car.curPathIdx = 0;
 	}
 
-	Vector3 dir = g_Path[ g_car.curPathIdx+1] - g_car.pos;
+	Vector3 dir = g_Path[ g_car.curPathIdx+1].pos - g_car.pos;
 	const float len = dir.Length();
 
 	if (len < 1.9f)
@@ -325,7 +345,20 @@ void MoveCar(int elapseT)
 		// 다음 경로로 이동한다.
 		if ((g_car.curPathIdx + 1) < (int)g_Path.size())
 		{
-			++g_car.curPathIdx;
+			if (g_Path[ g_car.curPathIdx+1].type == 1)
+			{
+				// 일정시간 동안 대기한다.
+				g_car.waitTime += elapseT;
+				if (g_car.waitTime > 5000)
+				{
+					++g_car.curPathIdx;
+					g_car.waitTime =0;
+				}
+			}
+			else
+			{
+				++g_car.curPathIdx;
+			}
 		}
 		else
 		{
